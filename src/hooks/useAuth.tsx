@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null;
   userRole: UserRole | null;
   loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -124,6 +125,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const signIn = async (email: string, password: string) => {
+    try {
+      console.log('AuthProvider: Signing in user:', email);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('AuthProvider: Sign in error:', error);
+        throw error;
+      }
+
+      console.log('AuthProvider: Sign in successful for:', email);
+      // The auth state change listener will handle setting the user and role
+      
+    } catch (error) {
+      console.error('AuthProvider: Unexpected error signing in:', error);
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     try {
       console.log('AuthProvider: Signing out...');
@@ -140,6 +163,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user,
     userRole,
     loading,
+    signIn,
     signOut,
   };
 
