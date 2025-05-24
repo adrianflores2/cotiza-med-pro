@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Project, ProjectStatus } from '@/types/database';
@@ -9,31 +8,42 @@ export const useProjectsData = () => {
   const projectsQuery = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          project_items (
-            id,
-            numero_item,
-            cantidad,
-            equipment_id,
-            master_equipment (
-              codigo,
-              nombre_equipo,
-              grupo_generico
+      console.log('useProjectsData: Fetching projects...');
+      
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select(`
+            *,
+            project_items (
+              id,
+              numero_item,
+              cantidad,
+              equipment_id,
+              master_equipment (
+                codigo,
+                nombre_equipo,
+                grupo_generico
+              )
             )
-          )
-        `)
-        .order('created_at', { ascending: false });
+          `)
+          .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching projects:', error);
+        if (error) {
+          console.error('useProjectsData: Error fetching projects:', error);
+          throw error;
+        }
+
+        console.log('useProjectsData: Fetched projects:', data?.length || 0);
+        return data || [];
+        
+      } catch (error) {
+        console.error('useProjectsData: Unexpected error:', error);
         throw error;
       }
-
-      return data;
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const createProjectMutation = useMutation({

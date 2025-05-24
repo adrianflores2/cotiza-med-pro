@@ -18,20 +18,32 @@ const AppContent = () => {
   const { user, userRole, loading } = useAuth();
   const { toast } = useToast();
 
+  console.log('AppContent: Render state:', { 
+    user: user?.email || 'No user', 
+    userRole, 
+    loading 
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Cargando...</p>
+          <p className="mt-2 text-sm text-gray-500">
+            Verificando autenticación y cargando datos...
+          </p>
         </div>
       </div>
     );
   }
 
   if (!user) {
+    console.log('AppContent: No user, showing login form');
     return <LoginForm />;
   }
+
+  console.log('AppContent: User authenticated, showing main app');
 
   const renderCurrentView = () => {
     switch (currentView) {

@@ -6,18 +6,29 @@ export const useMasterEquipment = () => {
   const equipmentQuery = useQuery({
     queryKey: ['master-equipment'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('master_equipment')
-        .select('*')
-        .order('codigo');
+      console.log('useMasterEquipment: Fetching equipment...');
+      
+      try {
+        const { data, error } = await supabase
+          .from('master_equipment')
+          .select('*')
+          .order('codigo');
 
-      if (error) {
-        console.error('Error fetching master equipment:', error);
+        if (error) {
+          console.error('useMasterEquipment: Error fetching equipment:', error);
+          throw error;
+        }
+
+        console.log('useMasterEquipment: Fetched equipment:', data?.length || 0);
+        return data || [];
+        
+      } catch (error) {
+        console.error('useMasterEquipment: Unexpected error:', error);
         throw error;
       }
-
-      return data;
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   return {
