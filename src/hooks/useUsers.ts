@@ -20,16 +20,6 @@ interface DatabaseUser {
   updated_at: string;
 }
 
-interface AuthUser {
-  id: string;
-  email?: string;
-  created_at: string;
-  updated_at?: string;
-  user_metadata?: {
-    nombre?: string;
-  };
-}
-
 interface CreateUserData {
   nombre: string;
   email: string;
@@ -46,7 +36,7 @@ export const useUsers = () => {
       console.log('useUsers: Fetching users...');
       
       try {
-        // Obtener todos los usuarios de la tabla users
+        // Obtener todos los usuarios de la tabla users (sin intentar acceso a auth.users)
         const { data: users, error: usersError } = await supabase
           .from('users')
           .select('*')
@@ -71,51 +61,7 @@ export const useUsers = () => {
 
         console.log('useUsers: Raw user roles data:', userRoles);
 
-        // Crear una copia mutable del array de usuarios
-        const mutableUsers: DatabaseUser[] = [...(users || [])];
-
-        // También intentar obtener usuarios de auth que podrían no estar en la tabla users
-        try {
-          const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-          
-          if (!authError && authUsers?.users) {
-            // Agregar usuarios de auth que no estén en la tabla users
-            const existingUserIds = new Set(mutableUsers.map(u => u.id));
-            const missingUsers = (authUsers.users as AuthUser[]).filter(authUser => !existingUserIds.has(authUser.id));
-            
-            for (const authUser of missingUsers) {
-              console.log('useUsers: Found user in auth but not in users table:', authUser.email);
-              
-              // Intentar crear el registro en la tabla users
-              try {
-                const { error: insertError } = await supabase
-                  .from('users')
-                  .insert({
-                    id: authUser.id,
-                    nombre: authUser.user_metadata?.nombre || authUser.email?.split('@')[0] || 'Usuario',
-                    email: authUser.email || ''
-                  });
-                
-                if (!insertError) {
-                  // Agregar a la lista local
-                  mutableUsers.push({
-                    id: authUser.id,
-                    nombre: authUser.user_metadata?.nombre || authUser.email?.split('@')[0] || 'Usuario',
-                    email: authUser.email || '',
-                    created_at: authUser.created_at,
-                    updated_at: authUser.updated_at || authUser.created_at
-                  });
-                }
-              } catch (insertError) {
-                console.warn('useUsers: Could not insert missing user:', insertError);
-              }
-            }
-          }
-        } catch (authError) {
-          console.warn('useUsers: Could not fetch auth users (admin required):', authError);
-        }
-
-        const usersWithRoles: UserWithRoles[] = mutableUsers.map(user => {
+        const usersWithRoles: UserWithRoles[] = (users || []).map(user => {
           const userRoleRecords = (userRoles || []).filter(role => role.user_id === user.id);
           const roles = userRoleRecords.map(role => role.role);
           
