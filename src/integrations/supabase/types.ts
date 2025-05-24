@@ -9,6 +9,53 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      assignment_rules: {
+        Row: {
+          activo: boolean | null
+          cotizador_id: string
+          created_at: string | null
+          grupo_generico: string | null
+          id: string
+          nombre: string
+          patron_codigo: string | null
+          patron_nombre: string | null
+          prioridad: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          cotizador_id: string
+          created_at?: string | null
+          grupo_generico?: string | null
+          id?: string
+          nombre: string
+          patron_codigo?: string | null
+          patron_nombre?: string | null
+          prioridad?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          cotizador_id?: string
+          created_at?: string | null
+          grupo_generico?: string | null
+          id?: string
+          nombre?: string
+          patron_codigo?: string | null
+          patron_nombre?: string | null
+          prioridad?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_rules_cotizador_id_fkey"
+            columns: ["cotizador_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_assignments: {
         Row: {
           cotizador_id: string
@@ -54,6 +101,7 @@ export type Database = {
       master_equipment: {
         Row: {
           codigo: string
+          cotizador_predeterminado_id: string | null
           created_at: string | null
           grupo_generico: string
           id: string
@@ -62,6 +110,7 @@ export type Database = {
         }
         Insert: {
           codigo: string
+          cotizador_predeterminado_id?: string | null
           created_at?: string | null
           grupo_generico: string
           id?: string
@@ -70,13 +119,22 @@ export type Database = {
         }
         Update: {
           codigo?: string
+          cotizador_predeterminado_id?: string | null
           created_at?: string | null
           grupo_generico?: string
           id?: string
           nombre_equipo?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "master_equipment_cotizador_predeterminado_id_fkey"
+            columns: ["cotizador_predeterminado_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_items: {
         Row: {

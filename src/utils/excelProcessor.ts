@@ -9,6 +9,7 @@ export interface ExcelRow {
   cantidad: number;
   requiere_accesorios: boolean;
   observaciones?: string;
+  cotizador_sugerido?: string; // Nueva propiedad para asignación automática
 }
 
 export const processExcelFile = (file: File): Promise<ExcelRow[]> => {
@@ -52,6 +53,7 @@ export const processExcelFile = (file: File): Promise<ExcelRow[]> => {
           cantidad: getColumnIndex(['cantidad', 'qty', 'quantity', 'cant']),
           requiere_accesorios: getColumnIndex(['accesorios', 'accessories', 'acc']),
           observaciones: getColumnIndex(['observaciones', 'notas', 'comments', 'obs']),
+          cotizador_sugerido: getColumnIndex(['cotizador', 'responsable', 'asignado', 'quoter', 'assigned']),
         };
 
         console.log('Column mapping:', columnMapping);
@@ -80,6 +82,8 @@ export const processExcelFile = (file: File): Promise<ExcelRow[]> => {
                 Boolean(row[columnMapping.requiere_accesorios]) : false,
               observaciones: columnMapping.observaciones >= 0 ? 
                 String(row[columnMapping.observaciones] || '').trim() : undefined,
+              cotizador_sugerido: columnMapping.cotizador_sugerido >= 0 ? 
+                String(row[columnMapping.cotizador_sugerido] || '').trim() : undefined,
             };
 
             // Validar que tenga al menos nombre

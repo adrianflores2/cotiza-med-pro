@@ -1,4 +1,3 @@
-
 export type UserRole = 'coordinador' | 'cotizador' | 'comercial' | 'admin';
 export type ProjectStatus = 'pendiente' | 'en_proceso' | 'completado' | 'cancelado';
 export type QuotationStatus = 'vigente' | 'vencida' | 'seleccionada' | 'descartada';
@@ -23,6 +22,20 @@ export interface MasterEquipment {
   codigo: string;
   grupo_generico: string;
   nombre_equipo: string;
+  cotizador_predeterminado_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssignmentRule {
+  id: string;
+  nombre: string;
+  patron_codigo?: string;
+  patron_nombre?: string;
+  grupo_generico?: string;
+  cotizador_id: string;
+  prioridad: number;
+  activo: boolean;
   created_at: string;
   updated_at: string;
 }

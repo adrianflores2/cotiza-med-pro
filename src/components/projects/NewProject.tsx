@@ -1,11 +1,10 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProjectsData } from "@/hooks/useProjectsData";
 import { useEquipmentMatching } from "@/hooks/useEquipmentMatching";
@@ -26,6 +25,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
   const [excelData, setExcelData] = useState<ExcelRow[]>([]);
   const [isProcessingExcel, setIsProcessingExcel] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [assignmentPreview, setAssignmentPreview] = useState<{[key: string]: string}>({});
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -53,9 +53,21 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
       const processedData = await processExcelFile(file);
       console.log('NewProject: Excel processed successfully:', processedData.length, 'items');
       setExcelData(processedData);
+      
+      // Generar preview de asignaciones
+      const preview: {[key: string]: string} = {};
+      processedData.forEach((item, index) => {
+        if (item.cotizador_sugerido) {
+          preview[`item-${index}`] = item.cotizador_sugerido;
+        }
+      });
+      setAssignmentPreview(preview);
+      
+      const assignmentCount = Object.keys(preview).length;
+      
       toast({
         title: "Archivo procesado",
-        description: `Se procesaron ${processedData.length} ítems del Excel`,
+        description: `Se procesaron ${processedData.length} ítems del Excel${assignmentCount > 0 ? ` con ${assignmentCount} asignaciones sugeridas` : ''}`,
       });
     } catch (error) {
       console.error('NewProject: Error processing Excel:', error);
@@ -66,6 +78,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
       });
       setExcelFile(null);
       setExcelData([]);
+      setAssignmentPreview({});
     } finally {
       setIsProcessingExcel(false);
     }
@@ -78,6 +91,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
     console.log('NewProject: Form data:', formData);
     console.log('NewProject: Excel data length:', excelData.length);
     console.log('NewProject: User:', user?.email);
+    console.log('NewProject: Assignment preview:', assignmentPreview);
 
     // Validaciones
     if (!formData.nombre.trim()) {
@@ -114,6 +128,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
       const projectItems = [];
       let processedCount = 0;
       let errorCount = 0;
+      let assignedCount = 0;
 
       for (const row of excelData) {
         try {
@@ -122,11 +137,16 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
           const equipment = await findOrCreateEquipment(
             row.codigo_equipo,
             row.nombre_equipo,
-            row.grupo_generico
+            row.grupo_generico,
+            row.cotizador_sugerido
           );
 
           if (!equipment || !equipment.id) {
             throw new Error(`No se pudo obtener el equipo para: ${row.nombre_equipo}`);
+          }
+
+          if (equipment.cotizador_predeterminado_id) {
+            assignedCount++;
           }
 
           projectItems.push({
@@ -151,7 +171,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
         }
       }
 
-      console.log(`NewProject: Processing complete. Success: ${processedCount}, Errors: ${errorCount}`);
+      console.log(`NewProject: Processing complete. Success: ${processedCount}, Errors: ${errorCount}, Assigned: ${assignedCount}`);
 
       if (projectItems.length === 0) {
         throw new Error('No se pudieron procesar los ítems del proyecto');
@@ -177,7 +197,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
             console.log('NewProject: Project created successfully:', data);
             toast({
               title: "Proyecto creado",
-              description: `El proyecto "${formData.nombre}" ha sido creado exitosamente con ${projectItems.length} ítems`,
+              description: `El proyecto "${formData.nombre}" ha sido creado exitosamente con ${projectItems.length} ítems${assignedCount > 0 ? ` (${assignedCount} con cotizador asignado)` : ''}`,
             });
             resolve();
             // Navegar de vuelta después de un pequeño delay
@@ -295,20 +315,40 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
             </div>
 
             {excelData.length > 0 && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2 text-green-800">
-                  <Upload className="w-4 h-4" />
-                  <span className="font-medium">Archivo procesado exitosamente</span>
-                </div>
-                <p className="text-sm text-green-700 mt-1">
-                  Se encontraron {excelData.length} ítems en el archivo
-                </p>
-                <div className="mt-2 max-h-32 overflow-y-auto">
-                  <div className="text-xs text-green-600">
-                    Primeros ítems: {excelData.slice(0, 3).map(item => item.nombre_equipo).join(', ')}
-                    {excelData.length > 3 && '...'}
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-green-800">
+                    <Upload className="w-4 h-4" />
+                    <span className="font-medium">Archivo procesado exitosamente</span>
+                  </div>
+                  <p className="text-sm text-green-700 mt-1">
+                    Se encontraron {excelData.length} ítems en el archivo
+                  </p>
+                  <div className="mt-2 max-h-32 overflow-y-auto">
+                    <div className="text-xs text-green-600">
+                      Primeros ítems: {excelData.slice(0, 3).map(item => item.nombre_equipo).join(', ')}
+                      {excelData.length > 3 && '...'}
+                    </div>
                   </div>
                 </div>
+
+                {Object.keys(assignmentPreview).length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 text-blue-800">
+                      <Users className="w-4 h-4" />
+                      <span className="font-medium">Asignaciones Automáticas Detectadas</span>
+                    </div>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Se encontraron {Object.keys(assignmentPreview).length} sugerencias de cotizadores en el Excel
+                    </p>
+                    <div className="mt-2 max-h-24 overflow-y-auto">
+                      <div className="text-xs text-blue-600">
+                        Cotizadores sugeridos: {Object.values(assignmentPreview).slice(0, 3).join(', ')}
+                        {Object.keys(assignmentPreview).length > 3 && '...'}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -317,7 +357,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
               <ul className="list-disc list-inside mt-1 space-y-1">
                 <li>Primera fila: Encabezados de columnas</li>
                 <li>Columnas esperadas: Item/Número, Código, Nombre/Equipo, Grupo/Categoría, Cantidad</li>
-                <li>Columnas opcionales: Accesorios, Observaciones</li>
+                <li>Columnas opcionales: Accesorios, Observaciones, <strong>Cotizador/Responsable</strong></li>
               </ul>
             </div>
           </CardContent>
