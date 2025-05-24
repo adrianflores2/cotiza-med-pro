@@ -11,7 +11,7 @@ export interface User {
   updated_at: string;
 }
 
-export interface UserRole {
+export interface UserRoleRecord {
   id: string;
   user_id: string;
   role: UserRole;
