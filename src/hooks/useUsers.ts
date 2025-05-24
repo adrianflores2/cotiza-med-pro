@@ -57,6 +57,8 @@ export const useUsers = () => {
           throw usersError;
         }
 
+        console.log('useUsers: Raw users data:', users);
+
         // Obtener todos los roles
         const { data: userRoles, error: rolesError } = await supabase
           .from('user_roles')
@@ -66,6 +68,8 @@ export const useUsers = () => {
           console.error('useUsers: Error fetching user roles:', rolesError);
           throw rolesError;
         }
+
+        console.log('useUsers: Raw user roles data:', userRoles);
 
         // Crear una copia mutable del array de usuarios
         const mutableUsers: DatabaseUser[] = [...(users || [])];
@@ -111,12 +115,19 @@ export const useUsers = () => {
           console.warn('useUsers: Could not fetch auth users (admin required):', authError);
         }
 
-        const usersWithRoles: UserWithRoles[] = mutableUsers.map(user => ({
-          ...user,
-          roles: (userRoles || []).filter(role => role.user_id === user.id).map(role => role.role)
-        }));
+        const usersWithRoles: UserWithRoles[] = mutableUsers.map(user => {
+          const userRoleRecords = (userRoles || []).filter(role => role.user_id === user.id);
+          const roles = userRoleRecords.map(role => role.role);
+          
+          console.log(`useUsers: User ${user.nombre} (${user.email}) has roles:`, roles);
+          
+          return {
+            ...user,
+            roles
+          };
+        });
 
-        console.log('useUsers: Fetched users with roles:', usersWithRoles.length);
+        console.log('useUsers: Final users with roles:', usersWithRoles);
         return usersWithRoles;
         
       } catch (error) {

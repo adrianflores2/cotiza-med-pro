@@ -35,8 +35,14 @@ export const ItemAssignment = () => {
   const { users, isLoading: usersLoading } = useUsers();
   const { assignments, updateAssignment, isUpdating } = useItemAssignments();
 
-  // Filtrar usuarios con rol de cotizador
-  const quoters = users.filter(user => user.roles.includes('cotizador'));
+  // Filtrar usuarios con rol de cotizador - corregir la lógica de filtrado
+  const quoters = users.filter(user => {
+    console.log('ItemAssignment: Checking user:', user.nombre, 'Roles:', user.roles);
+    return user.roles && user.roles.includes('cotizador');
+  });
+
+  console.log('ItemAssignment: Total users:', users.length);
+  console.log('ItemAssignment: Quoters found:', quoters.length);
 
   // Obtener el proyecto seleccionado
   const currentProject = projects.find(p => p.id === selectedProject);
