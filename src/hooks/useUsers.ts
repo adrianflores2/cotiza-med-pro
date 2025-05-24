@@ -33,39 +33,58 @@ export const useUsers = () => {
   const usersQuery = useQuery({
     queryKey: ['users'],
     queryFn: async (): Promise<UserWithRoles[]> => {
-      console.log('useUsers: Fetching users...');
+      console.log('useUsers: Starting to fetch users...');
       
       try {
-        // Obtener todos los usuarios de la tabla users (sin intentar acceso a auth.users)
+        // Verificar autenticación primero
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        console.log('useUsers: Current authenticated user:', currentUser?.email);
+
+        // Obtener todos los usuarios de la tabla users
+        console.log('useUsers: Fetching users from public.users table...');
         const { data: users, error: usersError } = await supabase
           .from('users')
           .select('*')
           .order('created_at', { ascending: false });
+
+        console.log('useUsers: Users query result:', {
+          users: users?.length || 0,
+          error: usersError,
+          rawData: users
+        });
 
         if (usersError) {
           console.error('useUsers: Error fetching users:', usersError);
           throw usersError;
         }
 
-        console.log('useUsers: Raw users data:', users);
-
         // Obtener todos los roles
+        console.log('useUsers: Fetching user roles from public.user_roles table...');
         const { data: userRoles, error: rolesError } = await supabase
           .from('user_roles')
           .select('*');
+
+        console.log('useUsers: User roles query result:', {
+          roles: userRoles?.length || 0,
+          error: rolesError,
+          rawData: userRoles
+        });
 
         if (rolesError) {
           console.error('useUsers: Error fetching user roles:', rolesError);
           throw rolesError;
         }
 
-        console.log('useUsers: Raw user roles data:', userRoles);
-
+        // Combinar usuarios con sus roles
         const usersWithRoles: UserWithRoles[] = (users || []).map(user => {
           const userRoleRecords = (userRoles || []).filter(role => role.user_id === user.id);
           const roles = userRoleRecords.map(role => role.role);
           
-          console.log(`useUsers: User ${user.nombre} (${user.email}) has roles:`, roles);
+          console.log(`useUsers: Processing user ${user.nombre} (${user.email}):`, {
+            userId: user.id,
+            roleRecords: userRoleRecords,
+            finalRoles: roles
+          });
           
           return {
             ...user,
@@ -73,15 +92,23 @@ export const useUsers = () => {
           };
         });
 
-        console.log('useUsers: Final users with roles:', usersWithRoles);
+        // Log detallado de cotizadores encontrados
+        const quoters = usersWithRoles.filter(user => user.roles.includes('cotizador'));
+        console.log('useUsers: Quoters found:', {
+          totalUsers: usersWithRoles.length,
+          quotersCount: quoters.length,
+          quoters: quoters.map(q => ({ name: q.nombre, email: q.email, roles: q.roles }))
+        });
+
+        console.log('useUsers: Final result - users with roles:', usersWithRoles);
         return usersWithRoles;
         
       } catch (error) {
-        console.error('useUsers: Unexpected error:', error);
+        console.error('useUsers: Unexpected error in fetchUsers:', error);
         throw error;
       }
     },
-    retry: 3,
+    retry: 2,
     retryDelay: 1000,
   });
 

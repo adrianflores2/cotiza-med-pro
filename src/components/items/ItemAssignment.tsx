@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,14 +34,36 @@ export const ItemAssignment = () => {
   const { users, isLoading: usersLoading } = useUsers();
   const { assignments, updateAssignment, isUpdating } = useItemAssignments();
 
-  // Filtrar usuarios con rol de cotizador - corregir la lógica de filtrado
-  const quoters = users.filter(user => {
-    console.log('ItemAssignment: Checking user:', user.nombre, 'Roles:', user.roles);
-    return user.roles && user.roles.includes('cotizador');
+  // Log detallado del proceso de filtrado de cotizadores
+  console.log('ItemAssignment: Starting quoters filtering process');
+  console.log('ItemAssignment: Raw users data:', {
+    usersCount: users.length,
+    users: users.map(u => ({ id: u.id, name: u.nombre, email: u.email, roles: u.roles }))
   });
 
-  console.log('ItemAssignment: Total users:', users.length);
-  console.log('ItemAssignment: Quoters found:', quoters.length);
+  // Filtrar usuarios con rol de cotizador con logging detallado
+  const quoters = users.filter(user => {
+    const hasQuoterRole = user.roles && user.roles.includes('cotizador');
+    console.log(`ItemAssignment: Checking user ${user.nombre} (${user.email}):`, {
+      userId: user.id,
+      roles: user.roles,
+      hasRoles: !!user.roles,
+      hasQuoterRole: hasQuoterRole,
+      rolesList: user.roles ? user.roles.join(', ') : 'No roles'
+    });
+    return hasQuoterRole;
+  });
+
+  console.log('ItemAssignment: Quoters filtering result:', {
+    totalUsers: users.length,
+    quotersFound: quoters.length,
+    quotersList: quoters.map(q => ({
+      id: q.id,
+      name: q.nombre,
+      email: q.email,
+      roles: q.roles
+    }))
+  });
 
   // Obtener el proyecto seleccionado
   const currentProject = projects.find(p => p.id === selectedProject);
@@ -177,6 +198,31 @@ export const ItemAssignment = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Mostrar información de debug solo en desarrollo */}
+          {process.env.NODE_ENV === 'development' && (
+            <Card className="border-yellow-200 bg-yellow-50">
+              <CardHeader>
+                <CardTitle className="text-yellow-800">Debug Info</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm text-yellow-700 space-y-2">
+                  <p><strong>Total usuarios:</strong> {users.length}</p>
+                  <p><strong>Cotizadores encontrados:</strong> {quoters.length}</p>
+                  <div>
+                    <strong>Lista de cotizadores:</strong>
+                    <ul className="list-disc pl-5 mt-1">
+                      {quoters.map(quoter => (
+                        <li key={quoter.id}>
+                          {quoter.nombre} ({quoter.email}) - Roles: {quoter.roles.join(', ')}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
