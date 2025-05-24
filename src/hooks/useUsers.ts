@@ -19,6 +19,16 @@ interface DatabaseUser {
   updated_at: string;
 }
 
+interface AuthUser {
+  id: string;
+  email?: string;
+  created_at: string;
+  updated_at?: string;
+  user_metadata?: {
+    nombre?: string;
+  };
+}
+
 export const useUsers = () => {
   const queryClient = useQueryClient();
 
@@ -59,7 +69,7 @@ export const useUsers = () => {
           if (!authError && authUsers?.users) {
             // Agregar usuarios de auth que no estén en la tabla users
             const existingUserIds = new Set(mutableUsers.map(u => u.id));
-            const missingUsers = authUsers.users.filter(authUser => !existingUserIds.has(authUser.id));
+            const missingUsers = (authUsers.users as AuthUser[]).filter(authUser => !existingUserIds.has(authUser.id));
             
             for (const authUser of missingUsers) {
               console.log('useUsers: Found user in auth but not in users table:', authUser.email);
