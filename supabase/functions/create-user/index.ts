@@ -14,14 +14,19 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Starting create-user function...')
+    
     // Get the authorization header
     const authHeader = req.headers.get('authorization')
     if (!authHeader) {
+      console.error('No authorization header provided')
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    console.log('Authorization header found')
 
     // Create Supabase client with service role key for admin operations
     const supabaseAdmin = createClient(
@@ -35,55 +40,55 @@ serve(async (req) => {
       }
     )
 
-    // Create regular client to verify current user
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        },
-        global: {
-          headers: {
-            authorization: authHeader,
-          },
-        },
-      }
-    )
+    // Create regular client to verify current user with the provided token
+    const token = authHeader.replace('Bearer ', '')
+    console.log('Extracted token from header')
 
-    // Get the current user
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    // Get user from token
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
     
     if (userError || !user) {
-      console.error('Error getting user:', userError)
+      console.error('Error getting user from token:', userError)
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Check if user has admin role
-    const { data: userRoles, error: roleError } = await supabaseClient
+    console.log('User verified:', user.email)
+
+    // Check if user has admin role using service role client
+    const { data: userRoles, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .eq('role', 'admin')
       .maybeSingle()
 
-    if (roleError || !userRoles) {
+    if (roleError) {
       console.error('Error checking admin role:', roleError)
+      return new Response(
+        JSON.stringify({ error: 'Error checking permissions' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (!userRoles) {
+      console.error('User does not have admin role:', user.email)
       return new Response(
         JSON.stringify({ error: 'Access denied. Admin role required.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    console.log('Admin role verified for user:', user.email)
+
     // Parse request body
     const { nombre, email, password, role } = await req.json()
 
     // Validate required fields
     if (!nombre || !email || !password) {
+      console.error('Missing required fields')
       return new Response(
         JSON.stringify({ error: 'Missing required fields: nombre, email, password' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -111,6 +116,7 @@ serve(async (req) => {
     }
 
     if (!authData.user) {
+      console.error('Failed to create user - no user data returned')
       return new Response(
         JSON.stringify({ error: 'Failed to create user' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -138,8 +144,11 @@ serve(async (req) => {
       )
     }
 
+    console.log('User record created in users table')
+
     // Assign role if provided
     if (role) {
+      console.log('Assigning role:', role)
       const { error: roleError } = await supabaseAdmin
         .from('user_roles')
         .insert({
@@ -159,8 +168,10 @@ serve(async (req) => {
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
+      console.log('Role assigned successfully')
     }
 
+    console.log('User creation completed successfully')
     return new Response(
       JSON.stringify({ 
         success: true, 
