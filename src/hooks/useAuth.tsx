@@ -14,6 +14,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Función para limpiar el estado de autenticación
+const cleanupAuthState = () => {
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        localStorage.removeItem(key);
+      }
+    });
+    Object.keys(sessionStorage || {}).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        sessionStorage.removeItem(key);
+      }
+    });
+  } catch (error) {
+    console.warn('AuthProvider: Error cleaning up auth state:', error);
+  }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
@@ -22,14 +40,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     console.log('AuthProvider: Initializing...');
     
-    // Get initial session
+    let timeoutId: NodeJS.Timeout;
+
+    // Configurar timeout para evitar carga indefinida
+    const setupTimeout = () => {
+      timeoutId = setTimeout(() => {
+        console.log('AuthProvider: Timeout reached, stopping loading');
+        setLoading(false);
+      }, 10000); // 10 segundos máximo de carga
+    };
+
+    const clearAuthTimeout = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    setupTimeout();
+
+    // Configurar listener de cambios de auth PRIMERO
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('AuthProvider: Auth state changed:', event, session?.user?.email || 'No user');
+        
+        clearAuthTimeout();
+        
+        try {
+          if (session?.user) {
+            setUser(session.user);
+            // Usar setTimeout para evitar deadlocks
+            setTimeout(async () => {
+              await fetchUserRole(session.user.id);
+            }, 0);
+          } else {
+            setUser(null);
+            setUserRole(null);
+          }
+        } catch (error) {
+          console.error('AuthProvider: Error handling auth state change:', error);
+          setUser(null);
+          setUserRole(null);
+        }
+        
+        setLoading(false);
+      }
+    );
+
+    // LUEGO verificar sesión existente
     const getInitialSession = async () => {
       try {
         console.log('AuthProvider: Getting initial session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
+        clearAuthTimeout();
+        
         if (error) {
           console.error('AuthProvider: Error getting session:', error);
+          // Limpiar estado corrupto
+          cleanupAuthState();
+          setUser(null);
+          setUserRole(null);
           setLoading(false);
           return;
         }
@@ -38,7 +108,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (session?.user) {
           setUser(session.user);
-          await fetchUserRole(session.user.id);
+          setTimeout(async () => {
+            await fetchUserRole(session.user.id);
+          }, 0);
         } else {
           setUser(null);
           setUserRole(null);
@@ -47,34 +119,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
       } catch (error) {
         console.error('AuthProvider: Unexpected error getting session:', error);
+        clearAuthTimeout();
+        cleanupAuthState();
+        setUser(null);
+        setUserRole(null);
         setLoading(false);
       }
     };
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('AuthProvider: Auth state changed:', event, session?.user?.email || 'No user');
-        
-        try {
-          if (session?.user) {
-            setUser(session.user);
-            await fetchUserRole(session.user.id);
-          } else {
-            setUser(null);
-            setUserRole(null);
-          }
-        } catch (error) {
-          console.error('AuthProvider: Error handling auth state change:', error);
-        }
-        
-        setLoading(false);
-      }
-    );
-
     getInitialSession();
 
     return () => {
+      clearAuthTimeout();
       subscription.unsubscribe();
     };
   }, []);
@@ -83,7 +139,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('AuthProvider: Fetching user role for:', userId);
       
-      // First, check if user exists in users table
+      // Verificar si el usuario existe en la tabla users
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -92,16 +148,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (userError) {
         console.error('AuthProvider: Error fetching user data:', userError);
+        setUserRole('coordinador');
         return;
       }
 
       if (!userData) {
-        console.log('AuthProvider: User not found in users table');
-        setUserRole('coordinador'); // Default role
+        console.log('AuthProvider: User not found in users table, setting default role');
+        setUserRole('coordinador');
         return;
       }
 
-      // Then fetch user role
+      // Obtener rol del usuario
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
@@ -111,23 +168,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (roleError) {
         console.error('AuthProvider: Error fetching user role:', roleError);
-        setUserRole('coordinador'); // Default role
+        setUserRole('coordinador');
         return;
       }
 
       const role = roleData?.role || 'coordinador';
-      console.log('AuthProvider: User role:', role);
+      console.log('AuthProvider: User role set to:', role);
       setUserRole(role);
       
     } catch (error) {
       console.error('AuthProvider: Unexpected error fetching user role:', error);
-      setUserRole('coordinador'); // Default role
+      setUserRole('coordinador');
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
-      console.log('AuthProvider: Signing in user:', email);
+      console.log('AuthProvider: Starting sign in process for:', email);
+      
+      // Limpiar estado previo
+      cleanupAuthState();
+      
+      // Intentar cerrar sesión global primero
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        console.warn('AuthProvider: Could not sign out globally:', err);
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -139,7 +207,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.log('AuthProvider: Sign in successful for:', email);
-      // The auth state change listener will handle setting the user and role
+      
+      // Forzar recarga de página para estado limpio
+      if (data.user) {
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 100);
+      }
       
     } catch (error) {
       console.error('AuthProvider: Unexpected error signing in:', error);
@@ -149,13 +223,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
-      console.log('AuthProvider: Signing out...');
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('AuthProvider: Error signing out:', error);
+      console.log('AuthProvider: Starting sign out process...');
+      
+      // Limpiar estado primero
+      cleanupAuthState();
+      
+      // Intentar cerrar sesión
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        console.warn('AuthProvider: Could not sign out:', err);
       }
+      
+      // Forzar recarga para estado limpio
+      window.location.href = '/';
+      
     } catch (error) {
       console.error('AuthProvider: Unexpected error signing out:', error);
+      // Forzar recarga incluso si hay error
+      window.location.href = '/';
     }
   };
 

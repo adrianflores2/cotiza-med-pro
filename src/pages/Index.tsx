@@ -21,7 +21,8 @@ const AppContent = () => {
   console.log('AppContent: Render state:', { 
     user: user?.email || 'No user', 
     userRole, 
-    loading 
+    loading,
+    currentView
   });
 
   if (loading) {
@@ -32,6 +33,9 @@ const AppContent = () => {
           <p className="mt-4 text-gray-600">Cargando...</p>
           <p className="mt-2 text-sm text-gray-500">
             Verificando autenticación y cargando datos...
+          </p>
+          <p className="mt-4 text-xs text-gray-400">
+            Si esta pantalla persiste, intenta refrescar la página
           </p>
         </div>
       </div>
@@ -46,23 +50,33 @@ const AppContent = () => {
   console.log('AppContent: User authenticated, showing main app');
 
   const renderCurrentView = () => {
-    switch (currentView) {
-      case "dashboard":
-        return <Dashboard userRole={userRole || 'coordinador'} />;
-      case "projects":
-        return <ProjectList onNewProject={() => setCurrentView("new-project")} />;
-      case "new-project":
-        return <NewProject onBack={() => setCurrentView("projects")} />;
-      case "item-assignment":
-        return <ItemAssignment />;
-      case "quoter-inbox":
-        return <QuoterInbox />;
-      case "quotation-comparison":
-        return <QuotationComparison />;
-      case "user-management":
-        return <UserManagement />;
-      default:
-        return <Dashboard userRole={userRole || 'coordinador'} />;
+    try {
+      switch (currentView) {
+        case "dashboard":
+          return <Dashboard userRole={userRole || 'coordinador'} />;
+        case "projects":
+          return <ProjectList onNewProject={() => setCurrentView("new-project")} />;
+        case "new-project":
+          return <NewProject onBack={() => setCurrentView("projects")} />;
+        case "item-assignment":
+          return <ItemAssignment />;
+        case "quoter-inbox":
+          return <QuoterInbox />;
+        case "quotation-comparison":
+          return <QuotationComparison />;
+        case "user-management":
+          return <UserManagement />;
+        default:
+          return <Dashboard userRole={userRole || 'coordinador'} />;
+      }
+    } catch (error) {
+      console.error('AppContent: Error rendering view:', error);
+      toast({
+        title: "Error",
+        description: "Hubo un problema al cargar la vista. Intenta refrescar la página.",
+        variant: "destructive",
+      });
+      return <Dashboard userRole={userRole || 'coordinador'} />;
     }
   };
 

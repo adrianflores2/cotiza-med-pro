@@ -25,10 +25,11 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [excelData, setExcelData] = useState<ExcelRow[]>([]);
   const [isProcessingExcel, setIsProcessingExcel] = useState(false);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
   
   const { user } = useAuth();
   const { toast } = useToast();
-  const { createProject, isCreating } = useProjectsData();
+  const { createProject } = useProjectsData();
   const { findOrCreateEquipment } = useEquipmentMatching();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,20 +49,23 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
     setIsProcessingExcel(true);
 
     try {
+      console.log('NewProject: Processing Excel file:', file.name);
       const processedData = await processExcelFile(file);
+      console.log('NewProject: Excel processed successfully:', processedData.length, 'items');
       setExcelData(processedData);
       toast({
         title: "Archivo procesado",
         description: `Se procesaron ${processedData.length} ítems del Excel`,
       });
     } catch (error) {
-      console.error('Error processing Excel:', error);
+      console.error('NewProject: Error processing Excel:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Error al procesar el archivo Excel",
         variant: "destructive",
       });
       setExcelFile(null);
+      setExcelData([]);
     } finally {
       setIsProcessingExcel(false);
     }
@@ -69,7 +73,13 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('NewProject: Form submission started');
+    console.log('NewProject: Form data:', formData);
+    console.log('NewProject: Excel data length:', excelData.length);
+    console.log('NewProject: User:', user?.email);
 
+    // Validaciones
     if (!formData.nombre.trim()) {
       toast({
         title: "Error",
@@ -88,17 +98,36 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "No hay usuario autenticado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingProject(true);
+
     try {
-      console.log('Processing project items...');
+      console.log('NewProject: Processing project items...');
       const projectItems = [];
+      let processedCount = 0;
+      let errorCount = 0;
 
       for (const row of excelData) {
         try {
+          console.log(`NewProject: Processing item ${row.numero_item}: ${row.nombre_equipo}`);
+          
           const equipment = await findOrCreateEquipment(
             row.codigo_equipo,
             row.nombre_equipo,
             row.grupo_generico
           );
+
+          if (!equipment || !equipment.id) {
+            throw new Error(`No se pudo obtener el equipo para: ${row.nombre_equipo}`);
+          }
 
           projectItems.push({
             numero_item: row.numero_item,
@@ -107,8 +136,13 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
             requiere_accesorios: row.requiere_accesorios,
             observaciones: row.observaciones,
           });
+          
+          processedCount++;
+          console.log(`NewProject: Successfully processed item ${row.numero_item}`);
+          
         } catch (error) {
-          console.error(`Error processing item ${row.numero_item}:`, error);
+          errorCount++;
+          console.error(`NewProject: Error processing item ${row.numero_item}:`, error);
           toast({
             title: "Advertencia",
             description: `No se pudo procesar el ítem ${row.numero_item}: ${row.nombre_equipo}`,
@@ -116,6 +150,8 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
           });
         }
       }
+
+      console.log(`NewProject: Processing complete. Success: ${processedCount}, Errors: ${errorCount}`);
 
       if (projectItems.length === 0) {
         throw new Error('No se pudieron procesar los ítems del proyecto');
@@ -125,46 +161,63 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
         nombre: formData.nombre.trim(),
         observaciones: formData.observaciones.trim() || undefined,
         fecha_vencimiento: formData.fecha_vencimiento || undefined,
-        responsable_id: user?.id,
+        responsable_id: user.id,
         items: projectItems,
       };
 
-      console.log('Creating project with data:', projectData);
+      console.log('NewProject: Creating project with data:', {
+        ...projectData,
+        items: `${projectItems.length} items`
+      });
 
-      createProject(projectData, {
-        onSuccess: () => {
-          toast({
-            title: "Proyecto creado",
-            description: `El proyecto "${formData.nombre}" ha sido creado exitosamente con ${projectItems.length} ítems`,
-          });
-          onBack();
-        },
-        onError: (error) => {
-          console.error('Error creating project:', error);
-          toast({
-            title: "Error",
-            description: "No se pudo crear el proyecto. Intenta nuevamente.",
-            variant: "destructive",
-          });
-        },
+      // Usar Promise directo para mejor control de errores
+      await new Promise<void>((resolve, reject) => {
+        createProject(projectData, {
+          onSuccess: (data) => {
+            console.log('NewProject: Project created successfully:', data);
+            toast({
+              title: "Proyecto creado",
+              description: `El proyecto "${formData.nombre}" ha sido creado exitosamente con ${projectItems.length} ítems`,
+            });
+            resolve();
+            // Navegar de vuelta después de un pequeño delay
+            setTimeout(() => onBack(), 500);
+          },
+          onError: (error) => {
+            console.error('NewProject: Error creating project:', error);
+            reject(error);
+          },
+        });
       });
 
     } catch (error) {
-      console.error('Error in project creation:', error);
+      console.error('NewProject: Error in project creation process:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Error al crear el proyecto",
         variant: "destructive",
       });
+    } finally {
+      setIsCreatingProject(false);
     }
   };
 
-  const isLoading = isCreating || isProcessingExcel;
+  const isLoading = isCreatingProject || isProcessingExcel;
+  const canSubmit = !isLoading && excelData.length > 0 && formData.nombre.trim();
+
+  console.log('NewProject: Render state:', {
+    isLoading,
+    canSubmit,
+    excelDataLength: excelData.length,
+    formDataNombre: formData.nombre,
+    isCreatingProject,
+    isProcessingExcel
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-4">
-        <Button variant="ghost" onClick={onBack}>
+        <Button variant="ghost" onClick={onBack} disabled={isLoading}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Volver
         </Button>
@@ -185,6 +238,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 placeholder="Ej: Equipamiento Hospital Central"
                 required
+                disabled={isLoading}
               />
             </div>
 
@@ -195,6 +249,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
                 type="date"
                 value={formData.fecha_vencimiento}
                 onChange={(e) => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
+                disabled={isLoading}
               />
             </div>
 
@@ -206,6 +261,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
                 onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
                 placeholder="Observaciones adicionales del proyecto..."
                 rows={3}
+                disabled={isLoading}
               />
             </div>
           </CardContent>
@@ -227,7 +283,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
                   type="file"
                   accept=".xlsx,.xls"
                   onChange={handleFileChange}
-                  disabled={isProcessingExcel}
+                  disabled={isLoading}
                 />
               </div>
               {isProcessingExcel && (
@@ -268,18 +324,28 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
         </Card>
 
         <div className="flex justify-end space-x-4">
-          <Button type="button" variant="outline" onClick={onBack}>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onBack}
+            disabled={isLoading}
+          >
             Cancelar
           </Button>
           <Button 
             type="submit" 
-            disabled={isLoading || excelData.length === 0}
+            disabled={!canSubmit}
             className="min-w-[120px]"
           >
-            {isLoading ? (
+            {isCreatingProject ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Creando...
+              </>
+            ) : isProcessingExcel ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Procesando...
               </>
             ) : (
               'Crear Proyecto'
