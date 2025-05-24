@@ -30,6 +30,7 @@ const viewTitles = {
   "item-assignment": "Asignación de Ítems",
   "quoter-inbox": "Bandeja de Cotizador",
   "quotation-comparison": "Comparación de Cotizaciones",
+  "user-management": "Gestión de Usuarios",
   settings: "Configuración",
 };
 

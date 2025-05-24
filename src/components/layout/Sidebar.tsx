@@ -7,7 +7,8 @@ import {
   Inbox, 
   GitCompare,
   Settings,
-  Building2
+  Building2,
+  Users
 } from "lucide-react";
 
 interface SidebarProps {
@@ -40,6 +41,7 @@ const menuItems = {
     { id: "item-assignment", label: "Asignar Ítems", icon: ListChecks },
     { id: "quoter-inbox", label: "Bandejas", icon: Inbox },
     { id: "quotation-comparison", label: "Comparar Cotizaciones", icon: GitCompare },
+    { id: "user-management", label: "Gestión de Usuarios", icon: Users },
     { id: "settings", label: "Administración", icon: Settings },
   ],
 };
