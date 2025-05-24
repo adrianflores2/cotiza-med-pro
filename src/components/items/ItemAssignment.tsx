@@ -21,103 +21,77 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-
-const mockProjects = [
-  { id: 1, name: "Hospital San Juan - UCI", items: 45 },
-  { id: 2, name: "Clínica Norte - Quirófanos", items: 78 },
-  { id: 3, name: "Centro Médico Sur - Laboratorio", items: 23 },
-];
-
-const mockQuoters = [
-  { id: 1, name: "María González", specialty: "Equipos de diagnóstico" },
-  { id: 2, name: "Carlos Rodríguez", specialty: "Mobiliario médico" },
-  { id: 3, name: "Ana López", specialty: "Instrumental quirúrgico" },
-  { id: 4, name: "Pedro Martín", specialty: "Equipos de laboratorio" },
-];
-
-const mockItems = [
-  { 
-    id: 1, 
-    number: "001", 
-    code: "EQ-001", 
-    group: "Equipos de diagnóstico", 
-    name: "Monitor de signos vitales", 
-    quantity: 5,
-    assignedTo: null
-  },
-  { 
-    id: 2, 
-    number: "002", 
-    code: "EQ-002", 
-    group: "Equipos de diagnóstico", 
-    name: "Electrocardiógrafo", 
-    quantity: 2,
-    assignedTo: 1
-  },
-  { 
-    id: 3, 
-    number: "003", 
-    code: "MOB-001", 
-    group: "Mobiliario", 
-    name: "Cama hospitalaria eléctrica", 
-    quantity: 10,
-    assignedTo: 2
-  },
-  { 
-    id: 4, 
-    number: "004", 
-    code: "INS-001", 
-    group: "Instrumental", 
-    name: "Set básico de cirugía", 
-    quantity: 3,
-    assignedTo: null
-  },
-];
+import { useProjectsData } from "@/hooks/useProjectsData";
+import { useUsers } from "@/hooks/useUsers";
+import { useItemAssignments } from "@/hooks/useItemAssignments";
 
 export const ItemAssignment = () => {
-  const [selectedProject, setSelectedProject] = useState("1");
-  const [items, setItems] = useState(mockItems);
+  const [selectedProject, setSelectedProject] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [groupFilter, setGroupFilter] = useState("all");
-  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGroup = groupFilter === "all" || item.group === groupFilter;
+  const { projects, isLoading: projectsLoading } = useProjectsData();
+  const { users, isLoading: usersLoading } = useUsers();
+  const { assignments, updateAssignment, isUpdating } = useItemAssignments();
+
+  // Filtrar usuarios con rol de cotizador
+  const quoters = users.filter(user => user.roles.includes('cotizador'));
+
+  // Obtener el proyecto seleccionado
+  const currentProject = projects.find(p => p.id === selectedProject);
+  const projectItems = currentProject?.project_items || [];
+
+  // Combinar ítems del proyecto con asignaciones existentes
+  const itemsWithAssignments = projectItems.map(item => {
+    const assignment = assignments.find(a => a.item_id === item.id);
+    return {
+      ...item,
+      assignedTo: assignment?.cotizador_id || null
+    };
+  });
+
+  const filteredItems = itemsWithAssignments.filter(item => {
+    const equipment = item.master_equipment;
+    if (!equipment) return false;
+    
+    const matchesSearch = equipment.nombre_equipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         equipment.codigo.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesGroup = groupFilter === "all" || equipment.grupo_generico === groupFilter;
     return matchesSearch && matchesGroup;
   });
 
-  const uniqueGroups = [...new Set(items.map(item => item.group))];
-  const unassignedCount = items.filter(item => !item.assignedTo).length;
-  const assignedCount = items.filter(item => item.assignedTo).length;
+  const uniqueGroups = [...new Set(projectItems.map(item => item.master_equipment?.grupo_generico).filter(Boolean))];
+  const unassignedCount = itemsWithAssignments.filter(item => !item.assignedTo).length;
+  const assignedCount = itemsWithAssignments.filter(item => item.assignedTo).length;
 
-  const handleAssignment = (itemId: number, quoterId: string) => {
-    setItems(prev => prev.map(item => 
-      item.id === itemId 
-        ? { ...item, assignedTo: quoterId === "unassigned" ? null : parseInt(quoterId) }
-        : item
-    ));
+  const handleAssignment = (itemId: string, quoterId: string) => {
+    console.log('ItemAssignment: Handling assignment:', { itemId, quoterId });
+    const cotizadorId = quoterId === "unassigned" ? null : quoterId;
+    updateAssignment({ itemId, cotizadorId });
   };
 
-  const handleSaveAssignments = async () => {
-    setIsSaving(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: "Asignaciones guardadas",
-        description: "Las asignaciones de ítems han sido guardadas exitosamente.",
-      });
-      setIsSaving(false);
-    }, 1500);
-  };
-
-  const getQuoterName = (quoterId: number | null) => {
+  const getQuoterName = (quoterId: string | null) => {
     if (!quoterId) return null;
-    return mockQuoters.find(q => q.id === quoterId)?.name;
+    return users.find(u => u.id === quoterId)?.nombre;
   };
+
+  if (projectsLoading || usersLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Asignación de Ítems</h3>
+            <p className="text-gray-600">Asigna ítems del proyecto a cotizadores específicos</p>
+          </div>
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Cargando datos...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -126,23 +100,6 @@ export const ItemAssignment = () => {
           <h3 className="text-xl font-semibold text-gray-900">Asignación de Ítems</h3>
           <p className="text-gray-600">Asigna ítems del proyecto a cotizadores específicos</p>
         </div>
-        <Button 
-          onClick={handleSaveAssignments}
-          disabled={isSaving}
-          className="bg-green-600 hover:bg-green-700"
-        >
-          {isSaving ? (
-            <>
-              <Save className="w-4 h-4 mr-2 animate-spin" />
-              Guardando...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4 mr-2" />
-              Guardar Asignaciones
-            </>
-          )}
-        </Button>
       </div>
 
       <Card>
@@ -154,12 +111,12 @@ export const ItemAssignment = () => {
                 <SelectValue placeholder="Selecciona un proyecto" />
               </SelectTrigger>
               <SelectContent>
-                {mockProjects.map(project => (
-                  <SelectItem key={project.id} value={project.id.toString()}>
+                {projects.map(project => (
+                  <SelectItem key={project.id} value={project.id}>
                     <div className="flex items-center space-x-2">
                       <FileSpreadsheet className="w-4 h-4" />
-                      <span>{project.name}</span>
-                      <Badge variant="secondary">{project.items} ítems</Badge>
+                      <span>{project.nombre}</span>
+                      <Badge variant="secondary">{project.project_items?.length || 0} ítems</Badge>
                     </div>
                   </SelectItem>
                 ))}
@@ -169,133 +126,163 @@ export const ItemAssignment = () => {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{unassignedCount}</p>
-                <p className="text-sm text-gray-600">Ítems sin asignar</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{assignedCount}</p>
-                <p className="text-sm text-gray-600">Ítems asignados</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{mockQuoters.length}</p>
-                <p className="text-sm text-gray-600">Cotizadores disponibles</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Buscar ítems..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={groupFilter} onValueChange={setGroupFilter}>
-          <SelectTrigger className="w-full sm:w-64">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue placeholder="Filtrar por grupo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los grupos</SelectItem>
-            {uniqueGroups.map(group => (
-              <SelectItem key={group} value={group}>{group}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Ítems</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Nº</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Código</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Grupo</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre del Equipo</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Cantidad</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Asignado a</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm">{item.number}</td>
-                    <td className="py-3 px-4 text-sm font-mono">{item.code}</td>
-                    <td className="py-3 px-4">
-                      <Badge variant="outline" className="text-xs">
-                        {item.group}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-medium">{item.name}</td>
-                    <td className="py-3 px-4 text-sm">{item.quantity}</td>
-                    <td className="py-3 px-4">
-                      <Select 
-                        value={item.assignedTo?.toString() || "unassigned"}
-                        onValueChange={(value) => handleAssignment(item.id, value)}
-                      >
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="Sin asignar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned">
-                            <span className="text-gray-500">Sin asignar</span>
-                          </SelectItem>
-                          {mockQuoters.map(quoter => (
-                            <SelectItem key={quoter.id} value={quoter.id.toString()}>
-                              <div className="flex flex-col">
-                                <span>{quoter.name}</span>
-                                <span className="text-xs text-gray-500">{quoter.specialty}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {selectedProject && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <AlertCircle className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{unassignedCount}</p>
+                    <p className="text-sm text-gray-600">Ítems sin asignar</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{assignedCount}</p>
+                    <p className="text-sm text-gray-600">Ítems asignados</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Users className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{quoters.length}</p>
+                    <p className="text-sm text-gray-600">Cotizadores disponibles</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Buscar ítems..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={groupFilter} onValueChange={setGroupFilter}>
+              <SelectTrigger className="w-full sm:w-64">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filtrar por grupo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los grupos</SelectItem>
+                {uniqueGroups.map(group => (
+                  <SelectItem key={group} value={group}>{group}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Ítems</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Nº</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Código</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Grupo</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre del Equipo</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Cantidad</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Asignado a</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map((item) => {
+                      const equipment = item.master_equipment;
+                      if (!equipment) return null;
+
+                      return (
+                        <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4 text-sm">{item.numero_item}</td>
+                          <td className="py-3 px-4 text-sm font-mono">{equipment.codigo}</td>
+                          <td className="py-3 px-4">
+                            <Badge variant="outline" className="text-xs">
+                              {equipment.grupo_generico}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-sm font-medium">{equipment.nombre_equipo}</td>
+                          <td className="py-3 px-4 text-sm">{item.cantidad}</td>
+                          <td className="py-3 px-4">
+                            <Select 
+                              value={item.assignedTo || "unassigned"}
+                              onValueChange={(value) => handleAssignment(item.id, value)}
+                              disabled={isUpdating}
+                            >
+                              <SelectTrigger className="w-48">
+                                <SelectValue placeholder="Sin asignar" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unassigned">
+                                  <span className="text-gray-500">Sin asignar</span>
+                                </SelectItem>
+                                {quoters.map(quoter => (
+                                  <SelectItem key={quoter.id} value={quoter.id}>
+                                    <div className="flex flex-col">
+                                      <span>{quoter.nombre}</span>
+                                      <span className="text-xs text-gray-500">{quoter.email}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              
+              {filteredItems.length === 0 && selectedProject && (
+                <div className="text-center py-8">
+                  <FileSpreadsheet className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No hay ítems</h3>
+                  <p className="text-gray-600">
+                    {projectItems.length === 0 
+                      ? "Este proyecto no tiene ítems cargados." 
+                      : "No hay ítems que coincidan con los filtros seleccionados."}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {!selectedProject && (
+        <div className="text-center py-12">
+          <FileSpreadsheet className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Selecciona un proyecto</h3>
+          <p className="text-gray-600">Elige un proyecto para comenzar a asignar ítems a cotizadores.</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -12,6 +12,7 @@ export const useUsers = () => {
       console.log('useUsers: Fetching users...');
       
       try {
+        // Obtener todos los usuarios de la tabla users
         const { data: users, error: usersError } = await supabase
           .from('users')
           .select('*')
@@ -22,6 +23,7 @@ export const useUsers = () => {
           throw usersError;
         }
 
+        // Obtener todos los roles
         const { data: userRoles, error: rolesError } = await supabase
           .from('user_roles')
           .select('*');
@@ -29,6 +31,47 @@ export const useUsers = () => {
         if (rolesError) {
           console.error('useUsers: Error fetching user roles:', rolesError);
           throw rolesError;
+        }
+
+        // También intentar obtener usuarios de auth que podrían no estar en la tabla users
+        try {
+          const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+          
+          if (!authError && authUsers.users) {
+            // Agregar usuarios de auth que no estén en la tabla users
+            const existingUserIds = new Set(users.map(u => u.id));
+            const missingUsers = authUsers.users.filter(authUser => !existingUserIds.has(authUser.id));
+            
+            for (const authUser of missingUsers) {
+              console.log('useUsers: Found user in auth but not in users table:', authUser.email);
+              
+              // Intentar crear el registro en la tabla users
+              try {
+                const { error: insertError } = await supabase
+                  .from('users')
+                  .insert({
+                    id: authUser.id,
+                    nombre: authUser.user_metadata?.nombre || authUser.email?.split('@')[0] || 'Usuario',
+                    email: authUser.email || ''
+                  });
+                
+                if (!insertError) {
+                  // Agregar a la lista local
+                  users.push({
+                    id: authUser.id,
+                    nombre: authUser.user_metadata?.nombre || authUser.email?.split('@')[0] || 'Usuario',
+                    email: authUser.email || '',
+                    created_at: authUser.created_at,
+                    updated_at: authUser.updated_at || authUser.created_at
+                  });
+                }
+              } catch (insertError) {
+                console.warn('useUsers: Could not insert missing user:', insertError);
+              }
+            }
+          }
+        } catch (authError) {
+          console.warn('useUsers: Could not fetch auth users (admin required):', authError);
         }
 
         const usersWithRoles = users.map(user => ({
