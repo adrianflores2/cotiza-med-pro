@@ -21,62 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const mockAssignedItems = [
-  {
-    id: 1,
-    project: "Hospital San Juan - UCI",
-    itemNumber: "001",
-    code: "EQ-001",
-    name: "Monitor de signos vitales",
-    quantity: 5,
-    status: "Pendiente",
-    dueDate: "2024-02-15",
-    priority: "Alta",
-    quotationsCount: 0
-  },
-  {
-    id: 2,
-    project: "Hospital San Juan - UCI",
-    itemNumber: "002",
-    code: "EQ-002",
-    name: "Electrocardiógrafo",
-    quantity: 2,
-    status: "En progreso",
-    dueDate: "2024-02-20",
-    priority: "Media",
-    quotationsCount: 2
-  },
-  {
-    id: 3,
-    project: "Clínica Norte - Quirófanos",
-    itemNumber: "015",
-    code: "EQ-015",
-    name: "Desfibrilador",
-    quantity: 1,
-    status: "Completado",
-    dueDate: "2024-02-10",
-    priority: "Alta",
-    quotationsCount: 3
-  },
-  {
-    id: 4,
-    project: "Centro Médico Sur - Laboratorio",
-    itemNumber: "008",
-    code: "LAB-008",
-    name: "Microscopio binocular",
-    quantity: 4,
-    status: "Pendiente",
-    dueDate: "2024-02-25",
-    priority: "Baja",
-    quotationsCount: 0
-  },
-];
+import { useItemAssignments } from "@/hooks/useItemAssignments";
+import { useAuth } from "@/hooks/useAuth";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const statusColors = {
-  "Pendiente": "bg-orange-100 text-orange-800",
-  "En progreso": "bg-blue-100 text-blue-800",
-  "Completado": "bg-green-100 text-green-800",
+  "pendiente": "bg-orange-100 text-orange-800",
+  "en_proceso": "bg-blue-100 text-blue-800",
+  "completado": "bg-green-100 text-green-800",
+};
+
+const statusLabels = {
+  "pendiente": "Pendiente",
+  "en_proceso": "En progreso", 
+  "completado": "Completado",
 };
 
 const priorityColors = {
@@ -88,20 +46,49 @@ const priorityColors = {
 export const QuoterInbox = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const { assignments, isLoading } = useItemAssignments();
+  const { user } = useAuth();
 
-  const filteredItems = mockAssignedItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.project.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || item.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
+  console.log('QuoterInbox: User:', user?.email, 'Assignments:', assignments.length);
+
+  // Filtrar asignaciones para el usuario actual
+  const userAssignments = assignments.filter(assignment => 
+    assignment.cotizador_id === user?.id
+  );
+
+  console.log('QuoterInbox: User assignments:', userAssignments.length);
+
+  // Aplicar filtros
+  const filteredItems = userAssignments.filter(assignment => {
+    const item = assignment.project_items;
+    if (!item) return false;
+
+    const matchesSearch = 
+      item.master_equipment?.nombre_equipo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.master_equipment?.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.projects?.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === "all" || assignment.estado === statusFilter;
+    const matchesProject = projectFilter === "all" || item.proyecto_id === projectFilter;
+    
+    return matchesSearch && matchesStatus && matchesProject;
   });
 
-  const pendingCount = mockAssignedItems.filter(item => item.status === "Pendiente").length;
-  const inProgressCount = mockAssignedItems.filter(item => item.status === "En progreso").length;
-  const completedCount = mockAssignedItems.filter(item => item.status === "Completado").length;
+  // Obtener proyectos únicos para el filtro
+  const uniqueProjects = Array.from(
+    new Set(
+      userAssignments
+        .map(a => a.project_items?.projects)
+        .filter(Boolean)
+        .map(p => JSON.stringify({ id: p!.id, nombre: p!.nombre }))
+    )
+  ).map(p => JSON.parse(p));
+
+  // Calcular estadísticas
+  const pendingCount = userAssignments.filter(a => a.estado === "pendiente").length;
+  const inProgressCount = userAssignments.filter(a => a.estado === "en_proceso").length;
+  const completedCount = userAssignments.filter(a => a.estado === "completado").length;
 
   const getDaysUntilDue = (dueDate: string) => {
     const today = new Date();
@@ -110,6 +97,23 @@ export const QuoterInbox = () => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Mi Bandeja de Cotización</h3>
+            <p className="text-gray-600">Gestiona los ítems asignados para cotización</p>
+          </div>
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Cargando asignaciones...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -180,105 +184,97 @@ export const QuoterInbox = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los estados</SelectItem>
-            <SelectItem value="Pendiente">Pendiente</SelectItem>
-            <SelectItem value="En progreso">En progreso</SelectItem>
-            <SelectItem value="Completado">Completado</SelectItem>
+            <SelectItem value="pendiente">Pendiente</SelectItem>
+            <SelectItem value="en_proceso">En progreso</SelectItem>
+            <SelectItem value="completado">Completado</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+        <Select value={projectFilter} onValueChange={setProjectFilter}>
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Prioridad" />
+            <SelectValue placeholder="Proyecto" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas las prioridades</SelectItem>
-            <SelectItem value="Alta">Alta</SelectItem>
-            <SelectItem value="Media">Media</SelectItem>
-            <SelectItem value="Baja">Baja</SelectItem>
+            <SelectItem value="all">Todos los proyectos</SelectItem>
+            {uniqueProjects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.nombre}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      <div className="grid gap-4">
-        {filteredItems.map((item) => {
-          const daysUntilDue = getDaysUntilDue(item.dueDate);
-          const isOverdue = daysUntilDue < 0;
-          const isDueSoon = daysUntilDue <= 3 && daysUntilDue >= 0;
+      {filteredItems.length > 0 ? (
+        <div className="grid gap-4">
+          {filteredItems.map((assignment) => {
+            const item = assignment.project_items!;
+            const equipment = item.master_equipment!;
+            const project = item.projects!;
 
-          return (
-            <Card key={item.id} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h4 className="font-semibold text-gray-900">{item.name}</h4>
-                      <Badge className={statusColors[item.status as keyof typeof statusColors]}>
-                        {item.status}
-                      </Badge>
-                      <Badge className={priorityColors[item.priority as keyof typeof priorityColors]}>
-                        {item.priority}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-1">{item.project}</p>
-                    <p className="text-sm text-gray-500">
-                      Código: {item.code} | Cantidad: {item.quantity} unidades
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4 mr-1" />
-                      Ver
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Edit className="w-4 h-4 mr-1" />
-                      Cotizar
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-1 text-sm text-gray-600">
-                      <Calendar className="w-4 h-4" />
-                      <span>Vence: {item.dueDate}</span>
-                      {isOverdue && (
-                        <AlertTriangle className="w-4 h-4 text-red-500 ml-1" />
-                      )}
-                      {isDueSoon && !isOverdue && (
-                        <Clock className="w-4 h-4 text-orange-500 ml-1" />
+            return (
+              <Card key={assignment.id} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h4 className="font-semibold text-gray-900">{equipment.nombre_equipo}</h4>
+                        <Badge className={statusColors[assignment.estado as keyof typeof statusColors]}>
+                          {statusLabels[assignment.estado as keyof typeof statusLabels]}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-1">{project.nombre}</p>
+                      <p className="text-sm text-gray-500">
+                        Código: {equipment.codigo} | Cantidad: {item.cantidad} unidades
+                      </p>
+                      {item.observaciones && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          Observaciones: {item.observaciones}
+                        </p>
                       )}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {item.quotationsCount} cotización(es) registrada(s)
+                    <div className="flex space-x-2">
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4 mr-1" />
+                        Ver
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Edit className="w-4 h-4 mr-1" />
+                        Cotizar
+                      </Button>
                     </div>
                   </div>
-                  
-                  <div className="text-sm">
-                    {isOverdue ? (
-                      <span className="text-red-600 font-medium">
-                        Vencido ({Math.abs(daysUntilDue)} días)
-                      </span>
-                    ) : isDueSoon ? (
-                      <span className="text-orange-600 font-medium">
-                        Vence en {daysUntilDue} día(s)
-                      </span>
-                    ) : (
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-1 text-sm text-gray-600">
+                        <Calendar className="w-4 h-4" />
+                        <span>Asignado: {new Date(assignment.fecha_asignacion).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm">
                       <span className="text-gray-600">
-                        {daysUntilDue} días restantes
+                        Ítem #{item.numero_item}
                       </span>
-                    )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {filteredItems.length === 0 && (
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
         <div className="text-center py-12">
           <CheckCircle2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay ítems que coincidan</h3>
-          <p className="text-gray-600">Intenta ajustar los filtros de búsqueda.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {userAssignments.length === 0 ? 'No tienes asignaciones' : 'No hay ítems que coincidan'}
+          </h3>
+          <p className="text-gray-600">
+            {userAssignments.length === 0 
+              ? 'Espera a que un coordinador te asigne ítems para cotizar.'
+              : 'Intenta ajustar los filtros de búsqueda.'
+            }
+          </p>
         </div>
       )}
     </div>

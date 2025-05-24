@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { UserRole } from '@/types/database';
@@ -37,9 +36,9 @@ export const useUsers = () => {
         try {
           const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
           
-          if (!authError && authUsers.users) {
+          if (!authError && authUsers?.users) {
             // Agregar usuarios de auth que no estén en la tabla users
-            const existingUserIds = new Set(users.map(u => u.id));
+            const existingUserIds = new Set(users?.map(u => u.id) || []);
             const missingUsers = authUsers.users.filter(authUser => !existingUserIds.has(authUser.id));
             
             for (const authUser of missingUsers) {
@@ -55,7 +54,7 @@ export const useUsers = () => {
                     email: authUser.email || ''
                   });
                 
-                if (!insertError) {
+                if (!insertError && users) {
                   // Agregar a la lista local
                   users.push({
                     id: authUser.id,
@@ -74,9 +73,9 @@ export const useUsers = () => {
           console.warn('useUsers: Could not fetch auth users (admin required):', authError);
         }
 
-        const usersWithRoles = users.map(user => ({
+        const usersWithRoles = (users || []).map(user => ({
           ...user,
-          roles: userRoles.filter(role => role.user_id === user.id).map(role => role.role)
+          roles: (userRoles || []).filter(role => role.user_id === user.id).map(role => role.role)
         }));
 
         console.log('useUsers: Fetched users with roles:', usersWithRoles.length);
