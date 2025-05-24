@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { UserRole } from '@/types/database';
@@ -10,6 +9,14 @@ interface UserWithRoles {
   created_at: string;
   updated_at: string;
   roles: UserRole[];
+}
+
+interface DatabaseUser {
+  id: string;
+  nombre: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const useUsers = () => {
@@ -42,13 +49,16 @@ export const useUsers = () => {
           throw rolesError;
         }
 
+        // Crear una copia mutable del array de usuarios
+        const mutableUsers: DatabaseUser[] = [...(users || [])];
+
         // También intentar obtener usuarios de auth que podrían no estar en la tabla users
         try {
           const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
           
           if (!authError && authUsers?.users) {
             // Agregar usuarios de auth que no estén en la tabla users
-            const existingUserIds = new Set((users || []).map(u => u.id));
+            const existingUserIds = new Set(mutableUsers.map(u => u.id));
             const missingUsers = authUsers.users.filter(authUser => !existingUserIds.has(authUser.id));
             
             for (const authUser of missingUsers) {
@@ -64,9 +74,9 @@ export const useUsers = () => {
                     email: authUser.email || ''
                   });
                 
-                if (!insertError && users) {
+                if (!insertError) {
                   // Agregar a la lista local
-                  users.push({
+                  mutableUsers.push({
                     id: authUser.id,
                     nombre: authUser.user_metadata?.nombre || authUser.email?.split('@')[0] || 'Usuario',
                     email: authUser.email || '',
@@ -83,7 +93,7 @@ export const useUsers = () => {
           console.warn('useUsers: Could not fetch auth users (admin required):', authError);
         }
 
-        const usersWithRoles: UserWithRoles[] = (users || []).map(user => ({
+        const usersWithRoles: UserWithRoles[] = mutableUsers.map(user => ({
           ...user,
           roles: (userRoles || []).filter(role => role.user_id === user.id).map(role => role.role)
         }));
