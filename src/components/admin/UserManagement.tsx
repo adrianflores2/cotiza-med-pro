@@ -31,7 +31,7 @@ const roleColors = {
 
 export const UserManagement = () => {
   const { users, isLoading, assignRole, removeRole, isAssigning, isRemoving } = useUsers();
-  const [selectedRole, setSelectedRole] = useState<UserRole | "">("");
+  const [selectedRole, setSelectedRole] = useState<string>("");
   const [selectedUser, setSelectedUser] = useState<string>("");
   const { toast } = useToast();
 

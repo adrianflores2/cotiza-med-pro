@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useMasterEquipment } from './useMasterEquipment';
+import type { MasterEquipment } from '@/types/database';
 
 export const useEquipmentMatching = () => {
   const { equipment } = useMasterEquipment();
@@ -31,7 +32,7 @@ export const useEquipmentMatching = () => {
     codigo: string,
     nombre: string,
     grupo: string = 'General'
-  ) => {
+  ): Promise<MasterEquipment> => {
     console.log('Finding or creating equipment:', { codigo, nombre, grupo });
     
     // Buscar por código exacto
