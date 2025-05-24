@@ -1,16 +1,18 @@
 
-import { Bell, User, ChevronDown } from "lucide-react";
+import { Bell, User, ChevronDown, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 interface HeaderProps {
   userRole: string;
-  onRoleChange: (role: string) => void;
   currentView: string;
 }
 
@@ -31,7 +33,26 @@ const viewTitles = {
   settings: "Configuración",
 };
 
-export const Header = ({ userRole, onRoleChange, currentView }: HeaderProps) => {
+export const Header = ({ userRole, currentView }: HeaderProps) => {
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Sesión cerrada",
+        description: "Has cerrado sesión exitosamente",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo cerrar la sesión",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -57,24 +78,20 @@ export const Header = ({ userRole, onRoleChange, currentView }: HeaderProps) => 
                   <User className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-medium">Usuario Demo</p>
+                  <p className="text-sm font-medium">{user?.email || 'Usuario'}</p>
                   <p className="text-xs text-gray-500">{roleLabels[userRole as keyof typeof roleLabels]}</p>
                 </div>
                 <ChevronDown className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => onRoleChange("coordinador")}>
-                Cambiar a Coordinador
+              <DropdownMenuItem disabled>
+                Perfil de Usuario
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onRoleChange("cotizador")}>
-                Cambiar a Cotizador
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onRoleChange("comercial")}>
-                Cambiar a Comercial
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onRoleChange("admin")}>
-                Cambiar a Admin
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+                <LogOut className="w-4 h-4 mr-2" />
+                Cerrar Sesión
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

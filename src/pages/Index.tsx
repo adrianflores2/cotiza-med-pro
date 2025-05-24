@@ -8,17 +8,34 @@ import { NewProject } from "@/components/projects/NewProject";
 import { ItemAssignment } from "@/components/items/ItemAssignment";
 import { QuoterInbox } from "@/components/quoter/QuoterInbox";
 import { QuotationComparison } from "@/components/quotations/QuotationComparison";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
-const Index = () => {
+const AppContent = () => {
   const [currentView, setCurrentView] = useState("dashboard");
-  const [userRole, setUserRole] = useState("coordinador"); // coordinador, cotizador, comercial, admin
+  const { user, userRole, loading } = useAuth();
   const { toast } = useToast();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginForm />;
+  }
 
   const renderCurrentView = () => {
     switch (currentView) {
       case "dashboard":
-        return <Dashboard userRole={userRole} />;
+        return <Dashboard userRole={userRole || 'coordinador'} />;
       case "projects":
         return <ProjectList onNewProject={() => setCurrentView("new-project")} />;
       case "new-project":
@@ -30,7 +47,7 @@ const Index = () => {
       case "quotation-comparison":
         return <QuotationComparison />;
       default:
-        return <Dashboard userRole={userRole} />;
+        return <Dashboard userRole={userRole || 'coordinador'} />;
     }
   };
 
@@ -39,12 +56,11 @@ const Index = () => {
       <Sidebar 
         currentView={currentView} 
         onViewChange={setCurrentView}
-        userRole={userRole}
+        userRole={userRole || 'coordinador'}
       />
       <div className="flex-1 flex flex-col">
         <Header 
-          userRole={userRole} 
-          onRoleChange={setUserRole}
+          userRole={userRole || 'coordinador'} 
           currentView={currentView}
         />
         <main className="flex-1 p-6">
@@ -52,6 +68,14 @@ const Index = () => {
         </main>
       </div>
     </div>
+  );
+};
+
+const Index = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 

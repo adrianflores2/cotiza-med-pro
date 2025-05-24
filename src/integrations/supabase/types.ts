@@ -9,35 +9,114 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      item_assignments: {
+        Row: {
+          cotizador_id: string
+          created_at: string | null
+          estado: string | null
+          fecha_asignacion: string | null
+          id: string
+          item_id: string
+        }
+        Insert: {
+          cotizador_id: string
+          created_at?: string | null
+          estado?: string | null
+          fecha_asignacion?: string | null
+          id?: string
+          item_id: string
+        }
+        Update: {
+          cotizador_id?: string
+          created_at?: string | null
+          estado?: string | null
+          fecha_asignacion?: string | null
+          id?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_assignments_cotizador_id_fkey"
+            columns: ["cotizador_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_assignments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "project_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      master_equipment: {
+        Row: {
+          codigo: string
+          created_at: string | null
+          grupo_generico: string
+          id: string
+          nombre_equipo: string
+          updated_at: string | null
+        }
+        Insert: {
+          codigo: string
+          created_at?: string | null
+          grupo_generico: string
+          id?: string
+          nombre_equipo: string
+          updated_at?: string | null
+        }
+        Update: {
+          codigo?: string
+          created_at?: string | null
+          grupo_generico?: string
+          id?: string
+          nombre_equipo?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       project_items: {
         Row: {
           cantidad: number
-          codigo_interno: string
+          created_at: string | null
+          equipment_id: string
           id: string
-          nombre_equipo: string
           numero_item: number
-          proyecto_id: string | null
+          observaciones: string | null
+          proyecto_id: string
           requiere_accesorios: boolean | null
         }
         Insert: {
-          cantidad: number
-          codigo_interno: string
+          cantidad?: number
+          created_at?: string | null
+          equipment_id: string
           id?: string
-          nombre_equipo: string
           numero_item: number
-          proyecto_id?: string | null
+          observaciones?: string | null
+          proyecto_id: string
           requiere_accesorios?: boolean | null
         }
         Update: {
           cantidad?: number
-          codigo_interno?: string
+          created_at?: string | null
+          equipment_id?: string
           id?: string
-          nombre_equipo?: string
           numero_item?: number
-          proyecto_id?: string | null
+          observaciones?: string | null
+          proyecto_id?: string
           requiere_accesorios?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "project_items_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "master_equipment"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_items_proyecto_id_fkey"
             columns: ["proyecto_id"]
@@ -49,28 +128,43 @@ export type Database = {
       }
       projects: {
         Row: {
-          estado: string | null
+          created_at: string | null
+          estado: Database["public"]["Enums"]["project_status"] | null
+          excel_url: string | null
           fecha_creacion: string | null
+          fecha_vencimiento: string | null
           id: string
           nombre: string
-          requerimiento_url: string | null
+          observaciones: string | null
+          requerimientos_pdf_url: string | null
           responsable_id: string | null
+          updated_at: string | null
         }
         Insert: {
-          estado?: string | null
+          created_at?: string | null
+          estado?: Database["public"]["Enums"]["project_status"] | null
+          excel_url?: string | null
           fecha_creacion?: string | null
+          fecha_vencimiento?: string | null
           id?: string
           nombre: string
-          requerimiento_url?: string | null
+          observaciones?: string | null
+          requerimientos_pdf_url?: string | null
           responsable_id?: string | null
+          updated_at?: string | null
         }
         Update: {
-          estado?: string | null
+          created_at?: string | null
+          estado?: Database["public"]["Enums"]["project_status"] | null
+          excel_url?: string | null
           fecha_creacion?: string | null
+          fecha_vencimiento?: string | null
           id?: string
           nombre?: string
-          requerimiento_url?: string | null
+          observaciones?: string | null
+          requerimientos_pdf_url?: string | null
           responsable_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -85,27 +179,30 @@ export type Database = {
       quotation_accessories: {
         Row: {
           cantidad: number
-          cotizacion_id: string | null
-          en_misma_proforma: boolean | null
+          cotizacion_id: string
+          created_at: string | null
           id: string
+          incluido_en_proforma: boolean | null
           nombre: string
           observaciones: string | null
           precio_unitario: number | null
         }
         Insert: {
-          cantidad: number
-          cotizacion_id?: string | null
-          en_misma_proforma?: boolean | null
+          cantidad?: number
+          cotizacion_id: string
+          created_at?: string | null
           id?: string
+          incluido_en_proforma?: boolean | null
           nombre: string
           observaciones?: string | null
           precio_unitario?: number | null
         }
         Update: {
           cantidad?: number
-          cotizacion_id?: string | null
-          en_misma_proforma?: boolean | null
+          cotizacion_id?: string
+          created_at?: string | null
           id?: string
+          incluido_en_proforma?: boolean | null
           nombre?: string
           observaciones?: string | null
           precio_unitario?: number | null
@@ -120,58 +217,134 @@ export type Database = {
           },
         ]
       }
-      quotations: {
+      quotation_comparisons: {
         Row: {
-          cotizacion_pdf_url: string | null
-          equipo_id: string | null
-          estado: string | null
-          fecha_cotizacion: string | null
+          comercial_id: string
+          cotizacion_seleccionada_id: string
+          created_at: string | null
+          fecha_seleccion: string | null
           id: string
-          incoterm: string | null
-          item_id: string | null
-          moneda: string
-          precio_unitario: number
-          proveedor_id: string | null
-          tiempo_entrega: string | null
-          tipo_cambio: number | null
-          usuario_id: string | null
+          item_id: string
+          justificacion: string | null
+          margen_utilidad: number | null
+          observaciones: string | null
+          precio_venta: number | null
         }
         Insert: {
-          cotizacion_pdf_url?: string | null
-          equipo_id?: string | null
-          estado?: string | null
-          fecha_cotizacion?: string | null
+          comercial_id: string
+          cotizacion_seleccionada_id: string
+          created_at?: string | null
+          fecha_seleccion?: string | null
           id?: string
-          incoterm?: string | null
-          item_id?: string | null
-          moneda: string
-          precio_unitario: number
-          proveedor_id?: string | null
-          tiempo_entrega?: string | null
-          tipo_cambio?: number | null
-          usuario_id?: string | null
+          item_id: string
+          justificacion?: string | null
+          margen_utilidad?: number | null
+          observaciones?: string | null
+          precio_venta?: number | null
         }
         Update: {
-          cotizacion_pdf_url?: string | null
-          equipo_id?: string | null
-          estado?: string | null
-          fecha_cotizacion?: string | null
+          comercial_id?: string
+          cotizacion_seleccionada_id?: string
+          created_at?: string | null
+          fecha_seleccion?: string | null
           id?: string
-          incoterm?: string | null
-          item_id?: string | null
-          moneda?: string
-          precio_unitario?: number
-          proveedor_id?: string | null
-          tiempo_entrega?: string | null
-          tipo_cambio?: number | null
-          usuario_id?: string | null
+          item_id?: string
+          justificacion?: string | null
+          margen_utilidad?: number | null
+          observaciones?: string | null
+          precio_venta?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "quotations_equipo_id_fkey"
-            columns: ["equipo_id"]
+            foreignKeyName: "quotation_comparisons_comercial_id_fkey"
+            columns: ["comercial_id"]
             isOneToOne: false
-            referencedRelation: "supplier_equipments"
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_comparisons_cotizacion_seleccionada_id_fkey"
+            columns: ["cotizacion_seleccionada_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_comparisons_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: true
+            referencedRelation: "project_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotations: {
+        Row: {
+          condiciones: string | null
+          cotizador_id: string
+          created_at: string | null
+          estado: Database["public"]["Enums"]["quotation_status"] | null
+          fecha_cotizacion: string | null
+          fecha_vencimiento: string | null
+          id: string
+          incoterm: string | null
+          item_id: string
+          moneda: string
+          observaciones: string | null
+          precio_unitario: number
+          proforma_url: string | null
+          proveedor_id: string
+          supplier_equipment_id: string | null
+          tiempo_entrega: string | null
+          tipo_cambio: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          condiciones?: string | null
+          cotizador_id: string
+          created_at?: string | null
+          estado?: Database["public"]["Enums"]["quotation_status"] | null
+          fecha_cotizacion?: string | null
+          fecha_vencimiento?: string | null
+          id?: string
+          incoterm?: string | null
+          item_id: string
+          moneda?: string
+          observaciones?: string | null
+          precio_unitario: number
+          proforma_url?: string | null
+          proveedor_id: string
+          supplier_equipment_id?: string | null
+          tiempo_entrega?: string | null
+          tipo_cambio?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          condiciones?: string | null
+          cotizador_id?: string
+          created_at?: string | null
+          estado?: Database["public"]["Enums"]["quotation_status"] | null
+          fecha_cotizacion?: string | null
+          fecha_vencimiento?: string | null
+          id?: string
+          incoterm?: string | null
+          item_id?: string
+          moneda?: string
+          observaciones?: string | null
+          precio_unitario?: number
+          proforma_url?: string | null
+          proveedor_id?: string
+          supplier_equipment_id?: string | null
+          tiempo_entrega?: string | null
+          tipo_cambio?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_cotizador_id_fkey"
+            columns: ["cotizador_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -189,10 +362,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "quotations_usuario_id_fkey"
-            columns: ["usuario_id"]
+            foreignKeyName: "quotations_supplier_equipment_id_fkey"
+            columns: ["supplier_equipment_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "supplier_equipments"
             referencedColumns: ["id"]
           },
         ]
@@ -200,9 +373,10 @@ export type Database = {
       supplier_equipments: {
         Row: {
           catalogo_url: string | null
-          codigo_interno: string
-          cotizacion_pdf_url: string | null
-          fecha_actualizacion: string | null
+          created_at: string | null
+          equipment_id: string
+          fecha_ultima_actualizacion: string | null
+          ficha_tecnica_url: string | null
           id: string
           manual_url: string | null
           marca: string
@@ -210,14 +384,16 @@ export type Database = {
           moneda: string | null
           precio_unitario: number | null
           procedencia: string | null
-          proveedor_id: string | null
+          proveedor_id: string
           tipo_cambio: number | null
+          updated_at: string | null
         }
         Insert: {
           catalogo_url?: string | null
-          codigo_interno: string
-          cotizacion_pdf_url?: string | null
-          fecha_actualizacion?: string | null
+          created_at?: string | null
+          equipment_id: string
+          fecha_ultima_actualizacion?: string | null
+          ficha_tecnica_url?: string | null
           id?: string
           manual_url?: string | null
           marca: string
@@ -225,14 +401,16 @@ export type Database = {
           moneda?: string | null
           precio_unitario?: number | null
           procedencia?: string | null
-          proveedor_id?: string | null
+          proveedor_id: string
           tipo_cambio?: number | null
+          updated_at?: string | null
         }
         Update: {
           catalogo_url?: string | null
-          codigo_interno?: string
-          cotizacion_pdf_url?: string | null
-          fecha_actualizacion?: string | null
+          created_at?: string | null
+          equipment_id?: string
+          fecha_ultima_actualizacion?: string | null
+          ficha_tecnica_url?: string | null
           id?: string
           manual_url?: string | null
           marca?: string
@@ -240,10 +418,18 @@ export type Database = {
           moneda?: string | null
           precio_unitario?: number | null
           procedencia?: string | null
-          proveedor_id?: string | null
+          proveedor_id?: string
           tipo_cambio?: number | null
+          updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "supplier_equipments_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "master_equipment"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "supplier_equipments_proveedor_id_fkey"
             columns: ["proveedor_id"]
@@ -256,6 +442,7 @@ export type Database = {
       suppliers: {
         Row: {
           apellido_contacto: string | null
+          created_at: string | null
           email_contacto: string | null
           id: string
           nombre_contacto: string | null
@@ -263,9 +450,11 @@ export type Database = {
           razon_social: string
           ruc: string
           telefono_contacto: string | null
+          updated_at: string | null
         }
         Insert: {
           apellido_contacto?: string | null
+          created_at?: string | null
           email_contacto?: string | null
           id?: string
           nombre_contacto?: string | null
@@ -273,9 +462,11 @@ export type Database = {
           razon_social: string
           ruc: string
           telefono_contacto?: string | null
+          updated_at?: string | null
         }
         Update: {
           apellido_contacto?: string | null
+          created_at?: string | null
           email_contacto?: string | null
           id?: string
           nombre_contacto?: string | null
@@ -283,27 +474,60 @@ export type Database = {
           razon_social?: string
           ruc?: string
           telefono_contacto?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
-      users: {
+      user_roles: {
         Row: {
-          email: string
+          created_at: string | null
           id: string
-          nombre: string
-          rol: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string | null
           email: string
           id: string
           nombre: string
-          rol: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id: string
+          nombre: string
+          updated_at?: string | null
         }
         Update: {
+          created_at?: string | null
           email?: string
           id?: string
           nombre?: string
-          rol?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -312,10 +536,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_primary_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _user_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "coordinador" | "cotizador" | "comercial" | "admin"
+      project_status: "pendiente" | "en_proceso" | "completado" | "cancelado"
+      quotation_status: "vigente" | "vencida" | "seleccionada" | "descartada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -430,6 +666,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["coordinador", "cotizador", "comercial", "admin"],
+      project_status: ["pendiente", "en_proceso", "completado", "cancelado"],
+      quotation_status: ["vigente", "vencida", "seleccionada", "descartada"],
+    },
   },
 } as const
