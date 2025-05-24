@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { UserRole } from '@/types/database';
@@ -27,6 +28,13 @@ interface AuthUser {
   user_metadata?: {
     nombre?: string;
   };
+}
+
+interface CreateUserData {
+  nombre: string;
+  email: string;
+  password: string;
+  role?: UserRole;
 }
 
 export const useUsers = () => {
@@ -120,6 +128,33 @@ export const useUsers = () => {
     retryDelay: 1000,
   });
 
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: CreateUserData) => {
+      console.log('useUsers: Creating user:', userData.email);
+      
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: userData
+      });
+
+      if (error) {
+        console.error('useUsers: Error creating user:', error);
+        throw error;
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create user');
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => {
+      console.error('useUsers: User creation failed:', error);
+    },
+  });
+
   const assignRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: UserRole }) => {
       console.log('useUsers: Assigning role:', { userId, role });
@@ -168,8 +203,10 @@ export const useUsers = () => {
     users: usersQuery.data || [],
     isLoading: usersQuery.isLoading,
     error: usersQuery.error,
+    createUser: createUserMutation.mutate,
     assignRole: assignRoleMutation.mutate,
     removeRole: removeRoleMutation.mutate,
+    isCreating: createUserMutation.isPending,
     isAssigning: assignRoleMutation.isPending,
     isRemoving: removeRoleMutation.isPending,
   };

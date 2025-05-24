@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useUsers } from "@/hooks/useUsers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +22,6 @@ import {
 } from "@/components/ui/dialog";
 import { UserPlus, UserMinus, Users, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import type { UserRole } from "@/types/database";
 
 const roleLabels = {
@@ -41,11 +39,19 @@ const roleColors = {
 };
 
 export const UserManagement = () => {
-  const { users, isLoading, assignRole, removeRole, isAssigning, isRemoving } = useUsers();
+  const { 
+    users, 
+    isLoading, 
+    createUser, 
+    assignRole, 
+    removeRole, 
+    isCreating, 
+    isAssigning, 
+    isRemoving 
+  } = useUsers();
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
   
   // Estados para crear usuario
   const [newUserData, setNewUserData] = useState({
@@ -110,7 +116,7 @@ export const UserManagement = () => {
     );
   };
 
-  const handleCreateUser = async () => {
+  const handleCreateUser = () => {
     if (!newUserData.nombre || !newUserData.email || !newUserData.password) {
       toast({
         title: "Error",
@@ -120,88 +126,43 @@ export const UserManagement = () => {
       return;
     }
 
-    setIsCreating(true);
-    
-    try {
-      console.log('UserManagement: Creating user:', newUserData.email);
-      
-      // Crear usuario en Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: newUserData.email,
-        password: newUserData.password,
-        email_confirm: true,
-        user_metadata: {
-          nombre: newUserData.nombre
-        }
-      });
+    const userData = {
+      nombre: newUserData.nombre,
+      email: newUserData.email,
+      password: newUserData.password,
+      ...(newUserData.role && { role: newUserData.role })
+    };
 
-      if (authError) {
-        console.error('UserManagement: Auth error:', authError);
-        throw authError;
-      }
-
-      if (!authData.user) {
-        throw new Error('No se pudo crear el usuario');
-      }
-
-      console.log('UserManagement: User created in auth:', authData.user.id);
-
-      // Crear registro en la tabla users
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          nombre: newUserData.nombre,
-          email: newUserData.email
-        });
-
-      if (userError) {
-        console.error('UserManagement: User table error:', userError);
-        throw userError;
-      }
-
-      // Asignar rol si se especificó
-      if (newUserData.role) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: authData.user.id,
-            role: newUserData.role
-          });
-
-        if (roleError) {
-          console.error('UserManagement: Role assignment error:', roleError);
-          // No lanzamos error aquí, el usuario se creó correctamente
+    createUser(userData, {
+      onSuccess: (data) => {
+        console.log('UserManagement: User created successfully:', data);
+        
+        if (data.warning) {
           toast({
-            title: "Usuario creado",
-            description: "Usuario creado correctamente, pero hubo un problema asignando el rol. Puedes asignarlo manualmente.",
+            title: "Usuario creado con advertencia",
+            description: data.warning,
             variant: "destructive",
           });
+        } else {
+          toast({
+            title: "Usuario creado",
+            description: "El usuario ha sido creado exitosamente",
+          });
         }
-      }
 
-      toast({
-        title: "Usuario creado",
-        description: "El usuario ha sido creado exitosamente",
-      });
-
-      // Limpiar formulario y cerrar diálogo
-      setNewUserData({ nombre: "", email: "", password: "", role: "" });
-      setIsCreateDialogOpen(false);
-      
-      // Recargar datos
-      window.location.reload();
-
-    } catch (error: any) {
-      console.error('UserManagement: Error creating user:', error);
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo crear el usuario",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreating(false);
-    }
+        // Limpiar formulario y cerrar diálogo
+        setNewUserData({ nombre: "", email: "", password: "", role: "" });
+        setIsCreateDialogOpen(false);
+      },
+      onError: (error: any) => {
+        console.error('UserManagement: Error creating user:', error);
+        toast({
+          title: "Error",
+          description: error.message || "No se pudo crear el usuario",
+          variant: "destructive",
+        });
+      },
+    });
   };
 
   if (isLoading) {
