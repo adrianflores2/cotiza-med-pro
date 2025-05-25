@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { useItemAssignments } from "@/hooks/useItemAssignments";
 import { useAuth } from "@/hooks/useAuth";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { QuotationForm } from "./QuotationForm";
 
 const statusColors = {
   "pendiente": "bg-orange-100 text-orange-800",
@@ -37,20 +37,25 @@ const statusLabels = {
   "completado": "Completado",
 };
 
-const priorityColors = {
-  "Alta": "bg-red-100 text-red-800",
-  "Media": "bg-yellow-100 text-yellow-800",
-  "Baja": "bg-gray-100 text-gray-800",
-};
-
 export const QuoterInbox = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
+  const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const { assignments, isLoading } = useItemAssignments();
   const { user } = useAuth();
 
   console.log('QuoterInbox: User:', user?.email, 'Assignments:', assignments.length);
+
+  // Si hay una asignación seleccionada, mostrar el formulario de cotización
+  if (selectedAssignment) {
+    return (
+      <QuotationForm 
+        assignment={selectedAssignment}
+        onBack={() => setSelectedAssignment(null)}
+      />
+    );
+  }
 
   // Filtrar asignaciones para el usuario actual
   const userAssignments = assignments.filter(assignment => 
@@ -89,14 +94,6 @@ export const QuoterInbox = () => {
   const pendingCount = userAssignments.filter(a => a.estado === "pendiente").length;
   const inProgressCount = userAssignments.filter(a => a.estado === "en_proceso").length;
   const completedCount = userAssignments.filter(a => a.estado === "completado").length;
-
-  const getDaysUntilDue = (dueDate: string) => {
-    const today = new Date();
-    const due = new Date(dueDate);
-    const diffTime = due.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
 
   if (isLoading) {
     return (
@@ -237,7 +234,11 @@ export const QuoterInbox = () => {
                         <Eye className="w-4 h-4 mr-1" />
                         Ver
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedAssignment(assignment)}
+                      >
                         <Edit className="w-4 h-4 mr-1" />
                         Cotizar
                       </Button>

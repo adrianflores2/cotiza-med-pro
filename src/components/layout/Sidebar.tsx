@@ -8,7 +8,8 @@ import {
   GitCompare,
   Settings,
   Building2,
-  Users
+  Users,
+  Sliders
 } from "lucide-react";
 
 interface SidebarProps {
@@ -42,6 +43,7 @@ const menuItems = {
     { id: "quoter-inbox", label: "Bandejas", icon: Inbox },
     { id: "quotation-comparison", label: "Comparar Cotizaciones", icon: GitCompare },
     { id: "user-management", label: "Gestión de Usuarios", icon: Users },
+    { id: "assignment-rules", label: "Reglas de Asignación", icon: Sliders },
     { id: "settings", label: "Administración", icon: Settings },
   ],
 };

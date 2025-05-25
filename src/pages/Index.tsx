@@ -9,6 +9,7 @@ import { ItemAssignment } from "@/components/items/ItemAssignment";
 import { QuoterInbox } from "@/components/quoter/QuoterInbox";
 import { QuotationComparison } from "@/components/quotations/QuotationComparison";
 import { UserManagement } from "@/components/admin/UserManagement";
+import { AssignmentRules } from "@/components/admin/AssignmentRules";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +67,8 @@ const AppContent = () => {
           return <QuotationComparison />;
         case "user-management":
           return <UserManagement />;
+        case "assignment-rules":
+          return <AssignmentRules />;
         default:
           return <Dashboard userRole={userRole || 'coordinador'} />;
       }
