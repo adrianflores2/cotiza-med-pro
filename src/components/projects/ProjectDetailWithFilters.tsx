@@ -38,20 +38,20 @@ const estadoIcons = {
 
 export const ProjectDetailWithFilters = ({ projectId, onBack }: ProjectDetailWithFiltersProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [grupoGenerico, setGrupoGenerico] = useState("");
-  const [estado, setEstado] = useState("");
+  const [grupoGenerico, setGrupoGenerico] = useState("all");
+  const [estado, setEstado] = useState("all");
   const [showSupplierPanel, setShowSupplierPanel] = useState(false);
 
   const { project, isLoading, error } = useProjectDetail(projectId, {
-    grupoGenerico: grupoGenerico || undefined,
+    grupoGenerico: grupoGenerico === "all" ? undefined : grupoGenerico,
     searchTerm: searchTerm || undefined,
-    estado: estado || undefined,
+    estado: estado === "all" ? undefined : estado,
   });
 
   const clearFilters = () => {
     setSearchTerm("");
-    setGrupoGenerico("");
-    setEstado("");
+    setGrupoGenerico("all");
+    setEstado("all");
   };
 
   // Obtener grupos únicos para el filtro
@@ -88,6 +88,10 @@ export const ProjectDetailWithFilters = ({ projectId, onBack }: ProjectDetailWit
       </div>
     );
   }
+
+  const gruposDisponibles = project?.project_items
+    ? Array.from(new Set(project.project_items.map(item => item.master_equipment?.grupo_generico).filter(Boolean)))
+    : [];
 
   const { stats } = project;
 
@@ -240,7 +244,7 @@ export const ProjectDetailWithFilters = ({ projectId, onBack }: ProjectDetailWit
           <CardHeader>
             <CardTitle>
               Ítems del Proyecto
-              {(searchTerm || grupoGenerico || estado) && (
+              {(searchTerm || grupoGenerico !== "all" || estado !== "all") && (
                 <span className="text-sm font-normal text-gray-500 ml-2">
                   (Mostrando {project.project_items?.length || 0} de {stats.total} ítems)
                 </span>

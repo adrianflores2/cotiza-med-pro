@@ -62,7 +62,7 @@ export const ProjectFilters = ({
               <SelectValue placeholder="Todos los grupos" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos los grupos</SelectItem>
+              <SelectItem value="all">Todos los grupos</SelectItem>
               {gruposDisponibles.map((grupo) => (
                 <SelectItem key={grupo} value={grupo}>
                   {grupo}
@@ -79,7 +79,7 @@ export const ProjectFilters = ({
               <SelectValue placeholder="Todos los estados" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos los estados</SelectItem>
+              <SelectItem value="all">Todos los estados</SelectItem>
               <SelectItem value="pendiente">Pendiente</SelectItem>
               <SelectItem value="asignado">Asignado</SelectItem>
               <SelectItem value="cotizado">Cotizado</SelectItem>
