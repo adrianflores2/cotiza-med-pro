@@ -89,10 +89,6 @@ export const ProjectDetailWithFilters = ({ projectId, onBack }: ProjectDetailWit
     );
   }
 
-  const gruposDisponibles = project?.project_items
-    ? Array.from(new Set(project.project_items.map(item => item.master_equipment?.grupo_generico).filter(Boolean)))
-    : [];
-
   const { stats } = project;
 
   if (showSupplierPanel) {
