@@ -67,7 +67,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
   const [isDraft, setIsDraft] = useState(true);
   const { toast } = useToast();
   const { suppliers } = useSuppliers();
-  const { quotations } = useQuotations();
+  const { createQuotation, isCreating } = useQuotations();
   const { user } = useAuth();
 
   const item = assignment.project_items;
