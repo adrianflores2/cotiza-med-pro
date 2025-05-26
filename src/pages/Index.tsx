@@ -1,6 +1,5 @@
 
 import { useState } from "react";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { ProjectList } from "@/components/projects/ProjectList";
@@ -10,10 +9,12 @@ import { QuoterInbox } from "@/components/quoter/QuoterInbox";
 import { QuotationComparison } from "@/components/quotations/QuotationComparison";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { AssignmentRules } from "@/components/admin/AssignmentRules";
-import { SupplierManagement } from "@/components/admin/SupplierManagement";
+import { SupplierPanel } from "@/components/suppliers/SupplierPanel";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 
 const AppContent = () => {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -67,7 +68,7 @@ const AppContent = () => {
         case "quotation-comparison":
           return <QuotationComparison />;
         case "supplier-management":
-          return <SupplierManagement />;
+          return <SupplierPanel />;
         case "user-management":
           return <UserManagement />;
         case "assignment-rules":
@@ -87,22 +88,24 @@ const AppContent = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex w-full">
-      <Sidebar 
-        currentView={currentView} 
-        onViewChange={setCurrentView}
-        userRole={userRole || 'coordinador'}
-      />
-      <div className="flex-1 flex flex-col">
-        <Header 
-          userRole={userRole || 'coordinador'} 
-          currentView={currentView}
+    <SidebarProvider>
+      <div className="min-h-screen bg-gray-50 flex w-full">
+        <AppSidebar 
+          currentView={currentView} 
+          onViewChange={setCurrentView}
+          userRole={userRole || 'coordinador'}
         />
-        <main className="flex-1 p-6">
-          {renderCurrentView()}
-        </main>
+        <SidebarInset className="flex-1">
+          <Header 
+            userRole={userRole || 'coordinador'} 
+            currentView={currentView}
+          />
+          <main className="flex-1 p-6">
+            {renderCurrentView()}
+          </main>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
