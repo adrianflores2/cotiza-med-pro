@@ -3,14 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export const useSupplierEquipments = (supplierId?: string) => {
+export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const supplierEquipmentsQuery = useQuery({
-    queryKey: ['supplier-equipments', supplierId],
+    queryKey: ['supplier-equipments', supplierId, searchTerm],
     queryFn: async () => {
-      console.log('useSupplierEquipments: Fetching equipment for supplier:', supplierId);
+      console.log('useSupplierEquipments: Fetching equipment for supplier:', supplierId, 'search:', searchTerm);
       
       let query = supabase
         .from('supplier_equipments')
@@ -33,6 +33,10 @@ export const useSupplierEquipments = (supplierId?: string) => {
         query = query.eq('proveedor_id', supplierId);
       }
 
+      if (searchTerm) {
+        query = query.or(`master_equipment.codigo.ilike.%${searchTerm}%,master_equipment.nombre_equipo.ilike.%${searchTerm}%,marca.ilike.%${searchTerm}%,modelo.ilike.%${searchTerm}%`);
+      }
+
       const { data, error } = await query;
 
       if (error) {
@@ -43,7 +47,7 @@ export const useSupplierEquipments = (supplierId?: string) => {
       console.log('useSupplierEquipments: Fetched equipment:', data?.length || 0);
       return data || [];
     },
-    enabled: !!supplierId,
+    enabled: !searchTerm || searchTerm.length >= 2, // Only search if term has 2+ characters
   });
 
   const createSupplierEquipmentMutation = useMutation({

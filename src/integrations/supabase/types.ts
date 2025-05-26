@@ -56,6 +56,59 @@ export type Database = {
           },
         ]
       }
+      independent_proformas: {
+        Row: {
+          archivo_url: string | null
+          condiciones: string | null
+          created_at: string | null
+          fecha_proforma: string | null
+          id: string
+          moneda: string | null
+          observaciones: string | null
+          precio_unitario: number | null
+          supplier_equipment_id: string
+          tiempo_entrega: string | null
+          updated_at: string | null
+          vigente: boolean | null
+        }
+        Insert: {
+          archivo_url?: string | null
+          condiciones?: string | null
+          created_at?: string | null
+          fecha_proforma?: string | null
+          id?: string
+          moneda?: string | null
+          observaciones?: string | null
+          precio_unitario?: number | null
+          supplier_equipment_id: string
+          tiempo_entrega?: string | null
+          updated_at?: string | null
+          vigente?: boolean | null
+        }
+        Update: {
+          archivo_url?: string | null
+          condiciones?: string | null
+          created_at?: string | null
+          fecha_proforma?: string | null
+          id?: string
+          moneda?: string | null
+          observaciones?: string | null
+          precio_unitario?: number | null
+          supplier_equipment_id?: string
+          tiempo_entrega?: string | null
+          updated_at?: string | null
+          vigente?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "independent_proformas_supplier_equipment_id_fkey"
+            columns: ["supplier_equipment_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_equipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_assignments: {
         Row: {
           cotizador_id: string
