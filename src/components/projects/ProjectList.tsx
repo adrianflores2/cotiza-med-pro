@@ -1,6 +1,6 @@
-
 import { useState } from "react";
 import { useProjectsData } from "@/hooks/useProjectsData";
+import { ProjectDetail } from "./ProjectDetail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,17 @@ const statusColors = {
 
 export const ProjectList = ({ onNewProject }: ProjectListProps) => {
   const { projects, isLoading, error } = useProjectsData();
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  // Si hay un proyecto seleccionado, mostrar la vista detallada
+  if (selectedProjectId) {
+    return (
+      <ProjectDetail 
+        projectId={selectedProjectId} 
+        onBack={() => setSelectedProjectId(null)} 
+      />
+    );
+  }
 
   if (isLoading) {
     return (
@@ -115,7 +126,11 @@ export const ProjectList = ({ onNewProject }: ProjectListProps) => {
             const itemCount = project.project_items?.length || 0;
             
             return (
-              <Card key={project.id} className="hover:shadow-md transition-shadow">
+              <Card 
+                key={project.id} 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => setSelectedProjectId(project.id)}
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">

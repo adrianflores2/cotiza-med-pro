@@ -141,6 +141,7 @@ export type Database = {
           cantidad: number
           created_at: string | null
           equipment_id: string
+          estado: string | null
           id: string
           numero_item: number
           observaciones: string | null
@@ -151,6 +152,7 @@ export type Database = {
           cantidad?: number
           created_at?: string | null
           equipment_id: string
+          estado?: string | null
           id?: string
           numero_item: number
           observaciones?: string | null
@@ -161,6 +163,7 @@ export type Database = {
           cantidad?: number
           created_at?: string | null
           equipment_id?: string
+          estado?: string | null
           id?: string
           numero_item?: number
           observaciones?: string | null
@@ -241,6 +244,7 @@ export type Database = {
           created_at: string | null
           id: string
           incluido_en_proforma: boolean | null
+          moneda: string | null
           nombre: string
           observaciones: string | null
           precio_unitario: number | null
@@ -251,6 +255,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           incluido_en_proforma?: boolean | null
+          moneda?: string | null
           nombre: string
           observaciones?: string | null
           precio_unitario?: number | null
@@ -261,6 +266,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           incluido_en_proforma?: boolean | null
+          moneda?: string | null
           nombre?: string
           observaciones?: string | null
           precio_unitario?: number | null
@@ -442,9 +448,11 @@ export type Database = {
       }
       supplier_equipments: {
         Row: {
+          activo: boolean | null
           catalogo_url: string | null
           created_at: string | null
           equipment_id: string
+          fecha_cambio_precio: string | null
           fecha_ultima_actualizacion: string | null
           ficha_tecnica_url: string | null
           id: string
@@ -452,6 +460,7 @@ export type Database = {
           marca: string
           modelo: string
           moneda: string | null
+          precio_anterior: number | null
           precio_unitario: number | null
           procedencia: string | null
           proveedor_id: string
@@ -459,9 +468,11 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          activo?: boolean | null
           catalogo_url?: string | null
           created_at?: string | null
           equipment_id: string
+          fecha_cambio_precio?: string | null
           fecha_ultima_actualizacion?: string | null
           ficha_tecnica_url?: string | null
           id?: string
@@ -469,6 +480,7 @@ export type Database = {
           marca: string
           modelo: string
           moneda?: string | null
+          precio_anterior?: number | null
           precio_unitario?: number | null
           procedencia?: string | null
           proveedor_id: string
@@ -476,9 +488,11 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          activo?: boolean | null
           catalogo_url?: string | null
           created_at?: string | null
           equipment_id?: string
+          fecha_cambio_precio?: string | null
           fecha_ultima_actualizacion?: string | null
           ficha_tecnica_url?: string | null
           id?: string
@@ -486,6 +500,7 @@ export type Database = {
           marca?: string
           modelo?: string
           moneda?: string | null
+          precio_anterior?: number | null
           precio_unitario?: number | null
           procedencia?: string | null
           proveedor_id?: string

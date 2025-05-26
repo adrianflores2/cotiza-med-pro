@@ -39,6 +39,7 @@ interface Accessory {
   nombre: string;
   cantidad: number;
   precio_unitario: string;
+  moneda: string;
   incluido_en_proforma: boolean;
 }
 
@@ -80,6 +81,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
       nombre: "",
       cantidad: 1,
       precio_unitario: "",
+      moneda: "USD",
       incluido_en_proforma: true,
     };
     setAccessories([...accessories, newAccessory]);
@@ -132,13 +134,36 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
       return;
     }
 
-    // Aquí iría la lógica para guardar la cotización
-    console.log('Saving quotation:', { 
-      ...formData, 
-      accessories, 
-      isDraft: asDraft,
-      assignment_id: assignment.id 
-    });
+    // Preparar datos para envío
+    const quotationData = {
+      item_id: assignment.project_items.id,
+      cotizador_id: user?.id || '',
+      proveedor_id: '', // Se debe crear el proveedor primero
+      tipo_cotizacion: formData.tipo_cotizacion as 'nacional' | 'importado',
+      marca: formData.marca,
+      modelo: formData.modelo,
+      procedencia: formData.procedencia,
+      precio_unitario: parseFloat(formData.precio_unitario),
+      moneda: formData.moneda,
+      tiempo_entrega: formData.tiempo_entrega,
+      condiciones: formData.condiciones,
+      incoterm: formData.incoterm,
+      observaciones: formData.observaciones,
+      fecha_vencimiento: formData.fecha_vencimiento,
+      estado: asDraft ? 'vigente' as const : 'vigente' as const,
+      accessories: accessories.map(acc => ({
+        nombre: acc.nombre,
+        cantidad: acc.cantidad,
+        precio_unitario: acc.precio_unitario ? parseFloat(acc.precio_unitario) : undefined,
+        moneda: acc.moneda,
+        incluido_en_proforma: acc.incluido_en_proforma,
+      })).filter(acc => acc.nombre.trim() !== ''),
+    };
+
+    console.log('Datos de cotización a enviar:', quotationData);
+    
+    // TODO: Aquí necesitamos primero crear el proveedor y luego la cotización
+    // createQuotation(quotationData);
     
     toast({
       title: asDraft ? "Borrador guardado" : "Cotización enviada",
@@ -415,7 +440,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
               {accessories.length > 0 ? (
                 <div className="space-y-4">
                   {accessories.map((accessory) => (
-                    <div key={accessory.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg">
+                    <div key={accessory.id} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border rounded-lg">
                       <div>
                         <Label>Nombre del Accesorio</Label>
                         <Input
@@ -442,6 +467,22 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                           onChange={(e) => handleAccessoryChange(accessory.id, 'precio_unitario', e.target.value)}
                           placeholder="0.00"
                         />
+                      </div>
+                      <div>
+                        <Label>Moneda</Label>
+                        <Select 
+                          value={accessory.moneda}
+                          onValueChange={(value) => handleAccessoryChange(accessory.id, 'moneda', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="EUR">EUR</SelectItem>
+                            <SelectItem value="PEN">PEN</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label>¿Incluir en proforma?</Label>
