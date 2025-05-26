@@ -28,13 +28,53 @@ export const EquipmentForm = ({ supplierId, masterEquipment }: EquipmentFormProp
   const { createSupplierEquipment, isCreating } = useSupplierEquipments();
   const { register, handleSubmit, control, reset, formState: { errors } } = useForm<EquipmentFormData>();
 
+  console.log('EquipmentForm: masterEquipment received:', masterEquipment);
+
+  // Filtrar equipos válidos para evitar valores vacíos en Select
+  const validMasterEquipment = React.useMemo(() => {
+    if (!Array.isArray(masterEquipment)) {
+      console.log('EquipmentForm: masterEquipment is not an array:', masterEquipment);
+      return [];
+    }
+
+    const filtered = masterEquipment.filter(equipment => {
+      const isValid = equipment && 
+        typeof equipment.id === 'string' && 
+        equipment.id.trim() !== '' &&
+        equipment.codigo &&
+        equipment.nombre_equipo;
+      
+      if (!isValid) {
+        console.log('EquipmentForm: Filtering out invalid equipment:', equipment);
+      }
+      
+      return isValid;
+    });
+
+    console.log('EquipmentForm: Valid equipment filtered:', filtered.length, 'out of', masterEquipment.length);
+    return filtered;
+  }, [masterEquipment]);
+
   const onSubmit = async (data: EquipmentFormData) => {
+    console.log('EquipmentForm: Submitting data:', data);
     createSupplierEquipment({
       ...data,
       proveedor_id: supplierId,
     });
     reset();
   };
+
+  // Si no hay equipos válidos, mostrar mensaje
+  if (validMasterEquipment.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500">No hay equipos disponibles para seleccionar</p>
+        <p className="text-sm text-gray-400 mt-2">
+          {masterEquipment.length === 0 ? 'Cargando equipos...' : 'No se encontraron equipos válidos'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -50,11 +90,14 @@ export const EquipmentForm = ({ supplierId, masterEquipment }: EquipmentFormProp
                 <SelectValue placeholder="Seleccionar equipo" />
               </SelectTrigger>
               <SelectContent>
-                {masterEquipment.map((equipment) => (
-                  <SelectItem key={equipment.id} value={equipment.id}>
-                    {equipment.codigo} - {equipment.nombre_equipo}
-                  </SelectItem>
-                ))}
+                {validMasterEquipment.map((equipment) => {
+                  console.log('EquipmentForm: Rendering SelectItem for equipment:', equipment.id, equipment.codigo);
+                  return (
+                    <SelectItem key={equipment.id} value={equipment.id}>
+                      {equipment.codigo} - {equipment.nombre_equipo}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           )}

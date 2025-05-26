@@ -21,14 +21,62 @@ interface ProformaFormData {
 }
 
 export const ProformaForm = () => {
-  const { equipments } = useSupplierEquipments();
+  const { equipments, isLoading: loadingEquipments } = useSupplierEquipments();
   const { createProforma, isCreating } = useIndependentProformas();
   const { register, handleSubmit, control, reset, formState: { errors } } = useForm<ProformaFormData>();
 
+  console.log('ProformaForm: equipments received:', equipments);
+
+  // Filtrar equipos válidos para evitar valores vacíos en Select
+  const validEquipments = React.useMemo(() => {
+    if (!Array.isArray(equipments)) {
+      console.log('ProformaForm: equipments is not an array:', equipments);
+      return [];
+    }
+
+    const filtered = equipments.filter(equipment => {
+      const isValid = equipment && 
+        typeof equipment.id === 'string' && 
+        equipment.id.trim() !== '' &&
+        equipment.master_equipment &&
+        equipment.suppliers;
+      
+      if (!isValid) {
+        console.log('ProformaForm: Filtering out invalid equipment:', equipment);
+      }
+      
+      return isValid;
+    });
+
+    console.log('ProformaForm: Valid equipment filtered:', filtered.length, 'out of', equipments.length);
+    return filtered;
+  }, [equipments]);
+
   const onSubmit = async (data: ProformaFormData) => {
+    console.log('ProformaForm: Submitting data:', data);
     createProforma(data);
     reset();
   };
+
+  if (loadingEquipments) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-2 text-sm text-gray-600">Cargando equipos...</p>
+      </div>
+    );
+  }
+
+  if (validEquipments.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500">No hay equipos disponibles para crear proformas</p>
+        <p className="text-sm text-gray-400 mt-2">
+          {equipments.length === 0 ? 'No se encontraron equipos de proveedores' : 'No hay equipos válidos disponibles'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -44,11 +92,14 @@ export const ProformaForm = () => {
                 <SelectValue placeholder="Seleccionar equipo" />
               </SelectTrigger>
               <SelectContent>
-                {equipments.map((equipment) => (
-                  <SelectItem key={equipment.id} value={equipment.id}>
-                    {equipment.suppliers?.razon_social} - {equipment.master_equipment?.codigo} - {equipment.marca} {equipment.modelo}
-                  </SelectItem>
-                ))}
+                {validEquipments.map((equipment) => {
+                  console.log('ProformaForm: Rendering SelectItem for equipment:', equipment.id);
+                  return (
+                    <SelectItem key={equipment.id} value={equipment.id}>
+                      {equipment.suppliers?.razon_social} - {equipment.master_equipment?.nombre_equipo} ({equipment.marca} {equipment.modelo})
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           )}
@@ -66,6 +117,16 @@ export const ProformaForm = () => {
             type="date"
             {...register('fecha_proforma')}
             defaultValue={new Date().toISOString().split('T')[0]}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="archivo_url">URL del Archivo</Label>
+          <Input
+            id="archivo_url"
+            type="url"
+            {...register('archivo_url')}
+            placeholder="https://..."
           />
         </div>
 
@@ -105,27 +166,16 @@ export const ProformaForm = () => {
           <Input
             id="tiempo_entrega"
             {...register('tiempo_entrega')}
-            placeholder="30 días"
+            placeholder="15 días"
           />
         </div>
 
-        <div className="space-y-2 col-span-2">
-          <Label htmlFor="archivo_url">URL de Archivo</Label>
-          <Input
-            id="archivo_url"
-            type="url"
-            {...register('archivo_url')}
-            placeholder="https://..."
-          />
-        </div>
-
-        <div className="space-y-2 col-span-2">
+        <div className="space-y-2">
           <Label htmlFor="condiciones">Condiciones</Label>
-          <Textarea
+          <Input
             id="condiciones"
             {...register('condiciones')}
-            placeholder="Condiciones comerciales..."
-            rows={3}
+            placeholder="50% anticipo, 50% contra entrega"
           />
         </div>
 

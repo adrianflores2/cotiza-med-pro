@@ -24,8 +24,12 @@ export const SupplierPanel = () => {
 
   const { suppliers, isLoading: loadingSuppliers } = useSuppliers();
   const { equipments, isLoading: loadingEquipments } = useSupplierEquipments(selectedSupplier, searchTerm);
-  const { equipment: masterEquipment } = useMasterEquipment();
+  const { equipment: masterEquipment, isLoading: loadingMasterEquipment } = useMasterEquipment();
   const { proformas } = useIndependentProformas(selectedEquipment);
+
+  console.log('SupplierPanel: suppliers:', suppliers?.length || 0);
+  console.log('SupplierPanel: masterEquipment:', masterEquipment?.length || 0);
+  console.log('SupplierPanel: loadingMasterEquipment:', loadingMasterEquipment);
 
   const formatPrice = (price: number | null, currency: string = 'USD') => {
     if (!price) return 'No definido';
@@ -34,6 +38,9 @@ export const SupplierPanel = () => {
       currency: currency,
     }).format(price);
   };
+
+  // Validar si los datos están listos para mostrar formularios
+  const isDataReady = !loadingMasterEquipment && masterEquipment && masterEquipment.length > 0;
 
   return (
     <div className="space-y-6">
@@ -101,19 +108,26 @@ export const SupplierPanel = () => {
                 {selectedSupplier && (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button>
+                      <Button disabled={!isDataReady}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Agregar Equipo
+                        {loadingMasterEquipment ? 'Cargando...' : 'Agregar Equipo'}
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                       <DialogHeader>
                         <DialogTitle>Agregar Equipo al Proveedor</DialogTitle>
                       </DialogHeader>
-                      <EquipmentForm 
-                        supplierId={selectedSupplier}
-                        masterEquipment={masterEquipment}
-                      />
+                      {isDataReady ? (
+                        <EquipmentForm 
+                          supplierId={selectedSupplier}
+                          masterEquipment={masterEquipment}
+                        />
+                      ) : (
+                        <div className="text-center py-8">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                          <p className="mt-2 text-sm text-gray-600">Cargando equipos maestros...</p>
+                        </div>
+                      )}
                     </DialogContent>
                   </Dialog>
                 )}
@@ -303,9 +317,9 @@ export const SupplierPanel = () => {
                 </p>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button>
+                    <Button disabled={loadingEquipments}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Nueva Proforma
+                      {loadingEquipments ? 'Cargando...' : 'Nueva Proforma'}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl">
