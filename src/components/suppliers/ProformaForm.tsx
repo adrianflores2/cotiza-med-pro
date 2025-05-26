@@ -27,7 +27,7 @@ export const ProformaForm = () => {
 
   console.log('ProformaForm: equipments received:', equipments);
 
-  // Filtrar equipos válidos para evitar valores vacíos en Select
+  // Much more robust filtering to prevent empty or invalid values
   const validEquipments = React.useMemo(() => {
     if (!Array.isArray(equipments)) {
       console.log('ProformaForm: equipments is not an array:', equipments);
@@ -36,10 +36,16 @@ export const ProformaForm = () => {
 
     const filtered = equipments.filter(equipment => {
       const isValid = equipment && 
+        typeof equipment === 'object' &&
+        equipment.id &&
         typeof equipment.id === 'string' && 
         equipment.id.trim() !== '' &&
         equipment.master_equipment &&
-        equipment.suppliers;
+        typeof equipment.master_equipment === 'object' &&
+        equipment.master_equipment.nombre_equipo &&
+        equipment.suppliers &&
+        typeof equipment.suppliers === 'object' &&
+        equipment.suppliers.razon_social;
       
       if (!isValid) {
         console.log('ProformaForm: Filtering out invalid equipment:', equipment);
@@ -94,6 +100,11 @@ export const ProformaForm = () => {
               <SelectContent>
                 {validEquipments.map((equipment) => {
                   console.log('ProformaForm: Rendering SelectItem for equipment:', equipment.id);
+                  // Double check the value before rendering
+                  if (!equipment.id || typeof equipment.id !== 'string' || equipment.id.trim() === '') {
+                    console.warn('ProformaForm: Skipping invalid equipment in render:', equipment);
+                    return null;
+                  }
                   return (
                     <SelectItem key={equipment.id} value={equipment.id}>
                       {equipment.suppliers?.razon_social} - {equipment.master_equipment?.nombre_equipo} ({equipment.marca} {equipment.modelo})

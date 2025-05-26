@@ -30,7 +30,7 @@ export const EquipmentForm = ({ supplierId, masterEquipment }: EquipmentFormProp
 
   console.log('EquipmentForm: masterEquipment received:', masterEquipment);
 
-  // Filtrar equipos válidos para evitar valores vacíos en Select
+  // Much more robust filtering to prevent empty or invalid values
   const validMasterEquipment = React.useMemo(() => {
     if (!Array.isArray(masterEquipment)) {
       console.log('EquipmentForm: masterEquipment is not an array:', masterEquipment);
@@ -39,10 +39,16 @@ export const EquipmentForm = ({ supplierId, masterEquipment }: EquipmentFormProp
 
     const filtered = masterEquipment.filter(equipment => {
       const isValid = equipment && 
+        typeof equipment === 'object' &&
+        equipment.id &&
         typeof equipment.id === 'string' && 
         equipment.id.trim() !== '' &&
         equipment.codigo &&
-        equipment.nombre_equipo;
+        typeof equipment.codigo === 'string' &&
+        equipment.codigo.trim() !== '' &&
+        equipment.nombre_equipo &&
+        typeof equipment.nombre_equipo === 'string' &&
+        equipment.nombre_equipo.trim() !== '';
       
       if (!isValid) {
         console.log('EquipmentForm: Filtering out invalid equipment:', equipment);
@@ -92,6 +98,11 @@ export const EquipmentForm = ({ supplierId, masterEquipment }: EquipmentFormProp
               <SelectContent>
                 {validMasterEquipment.map((equipment) => {
                   console.log('EquipmentForm: Rendering SelectItem for equipment:', equipment.id, equipment.codigo);
+                  // Double check the value before rendering
+                  if (!equipment.id || typeof equipment.id !== 'string' || equipment.id.trim() === '') {
+                    console.warn('EquipmentForm: Skipping invalid equipment in render:', equipment);
+                    return null;
+                  }
                   return (
                     <SelectItem key={equipment.id} value={equipment.id}>
                       {equipment.codigo} - {equipment.nombre_equipo}

@@ -26,16 +26,34 @@ export const ProjectFilters = ({
   gruposDisponibles,
   onClearFilters,
 }: ProjectFiltersProps) => {
-  console.log('ProjectFilters: gruposDisponibles:', gruposDisponibles);
+  console.log('ProjectFilters: gruposDisponibles received:', gruposDisponibles);
   
-  // More robust filtering - ensure values are strings and not empty
-  const validGrupos = gruposDisponibles.filter(grupo => {
-    const isValid = typeof grupo === 'string' && grupo.trim() !== '' && grupo !== null && grupo !== undefined;
-    console.log('ProjectFilters: validating grupo:', grupo, 'isValid:', isValid);
-    return isValid;
-  });
-  
-  console.log('ProjectFilters: validGrupos after filtering:', validGrupos);
+  // Much more robust filtering to prevent empty or invalid values
+  const validGrupos = React.useMemo(() => {
+    if (!Array.isArray(gruposDisponibles)) {
+      console.log('ProjectFilters: gruposDisponibles is not an array, returning empty array');
+      return [];
+    }
+
+    const filtered = gruposDisponibles.filter(grupo => {
+      // Ensure the value is a string, not empty, not null, not undefined, and has meaningful content
+      const isValid = 
+        typeof grupo === 'string' && 
+        grupo.trim() !== '' && 
+        grupo !== null && 
+        grupo !== undefined &&
+        grupo.length > 0 &&
+        grupo.trim().length > 0;
+      
+      console.log('ProjectFilters: validating grupo:', JSON.stringify(grupo), 'type:', typeof grupo, 'isValid:', isValid);
+      return isValid;
+    });
+    
+    // Remove duplicates and sort
+    const uniqueFiltered = [...new Set(filtered)].sort();
+    console.log('ProjectFilters: final validGrupos:', uniqueFiltered);
+    return uniqueFiltered;
+  }, [gruposDisponibles]);
   
   return (
     <div className="bg-white p-4 rounded-lg border space-y-4">
@@ -74,8 +92,13 @@ export const ProjectFilters = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los grupos</SelectItem>
-              {validGrupos.map((grupo) => {
-                console.log('ProjectFilters: rendering SelectItem for grupo:', grupo);
+              {validGrupos.length > 0 && validGrupos.map((grupo) => {
+                console.log('ProjectFilters: rendering SelectItem for grupo:', JSON.stringify(grupo));
+                // Double check the value before rendering
+                if (!grupo || typeof grupo !== 'string' || grupo.trim() === '') {
+                  console.warn('ProjectFilters: Skipping invalid grupo in render:', grupo);
+                  return null;
+                }
                 return (
                   <SelectItem key={grupo} value={grupo}>
                     {grupo}
