@@ -23,13 +23,39 @@ export const SupplierPanel = () => {
   const [selectedEquipment, setSelectedEquipment] = useState<string>('');
 
   const { suppliers, isLoading: loadingSuppliers } = useSuppliers();
-  const { equipments, isLoading: loadingEquipments } = useSupplierEquipments(selectedSupplier, searchTerm);
+  const { equipments, isLoading: loadingEquipments } = useSupplierEquipments(selectedSupplier || undefined, searchTerm);
   const { equipment: masterEquipment, isLoading: loadingMasterEquipment } = useMasterEquipment();
   const { proformas } = useIndependentProformas(selectedEquipment);
 
   console.log('SupplierPanel: suppliers:', suppliers?.length || 0);
   console.log('SupplierPanel: masterEquipment:', masterEquipment?.length || 0);
   console.log('SupplierPanel: loadingMasterEquipment:', loadingMasterEquipment);
+
+  // Validate suppliers to prevent empty value SelectItems
+  const validSuppliers = React.useMemo(() => {
+    if (!Array.isArray(suppliers)) {
+      console.log('SupplierPanel: suppliers is not an array:', suppliers);
+      return [];
+    }
+
+    const filtered = suppliers.filter(supplier => {
+      const isValid = supplier && 
+        typeof supplier === 'object' &&
+        supplier.id &&
+        typeof supplier.id === 'string' && 
+        supplier.id.trim() !== '' &&
+        supplier.razon_social;
+      
+      if (!isValid) {
+        console.log('SupplierPanel: Filtering out invalid supplier:', supplier);
+      }
+      
+      return isValid;
+    });
+
+    console.log('SupplierPanel: Valid suppliers filtered:', filtered.length, 'out of', suppliers.length);
+    return filtered;
+  }, [suppliers]);
 
   const formatPrice = (price: number | null, currency: string = 'USD') => {
     if (!price) return 'No definido';
@@ -83,15 +109,22 @@ export const SupplierPanel = () => {
               <div className="flex gap-4">
                 <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
                   <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Seleccionar proveedor" />
+                    <SelectValue placeholder="Todos los proveedores" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los proveedores</SelectItem>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.razon_social}
-                      </SelectItem>
-                    ))}
+                    {validSuppliers.map((supplier) => {
+                      console.log('SupplierPanel: Rendering SelectItem for supplier:', supplier.id);
+                      // Double check the value before rendering
+                      if (!supplier.id || typeof supplier.id !== 'string' || supplier.id.trim() === '') {
+                        console.warn('SupplierPanel: Skipping invalid supplier in render:', supplier);
+                        return null;
+                      }
+                      return (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          {supplier.razon_social}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
 
@@ -261,7 +294,7 @@ export const SupplierPanel = () => {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="mt-2 text-gray-600">Cargando proveedores...</p>
                 </div>
-              ) : suppliers.length === 0 ? (
+              ) : validSuppliers.length === 0 ? (
                 <div className="text-center py-8">
                   <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">No hay proveedores registrados</p>
@@ -269,7 +302,7 @@ export const SupplierPanel = () => {
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {suppliers.map((supplier) => (
+                  {validSuppliers.map((supplier) => (
                     <Card key={supplier.id} className="cursor-pointer hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="space-y-2">
