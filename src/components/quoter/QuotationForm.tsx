@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +25,9 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useSuppliers } from "@/hooks/useSuppliers";
+import { useQuotations } from "@/hooks/useQuotations";
+import { useAuth } from "@/hooks/useAuth";
 
 interface QuotationFormProps {
   assignment: any;
@@ -64,6 +66,9 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
   const [accessories, setAccessories] = useState<Accessory[]>([]);
   const [isDraft, setIsDraft] = useState(true);
   const { toast } = useToast();
+  const { suppliers } = useSuppliers();
+  const { quotations } = useQuotations();
+  const { user } = useAuth();
 
   const item = assignment.project_items;
   const equipment = item?.master_equipment;
