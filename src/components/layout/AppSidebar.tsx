@@ -68,7 +68,7 @@ export function AppSidebar({ currentView, onViewChange, userRole }: AppSidebarPr
   const items = menuItems[userRole as keyof typeof menuItems] || menuItems.coordinador;
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-gray-200">
         <div className="flex items-center space-x-3 p-4">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -106,7 +106,7 @@ export function AppSidebar({ currentView, onViewChange, userRole }: AppSidebarPr
       </SidebarContent>
 
       <SidebarFooter className="p-4">
-        <div className="flex items-center justify-center group-data-[collapsible=icon]:hidden">
+        <div className="flex items-center justify-center">
           <SidebarTrigger />
         </div>
       </SidebarFooter>
