@@ -347,14 +347,18 @@ export type Database = {
           id: string
           incoterm: string | null
           item_id: string
+          marca: string | null
+          modelo: string | null
           moneda: string
           observaciones: string | null
           precio_unitario: number
+          procedencia: string | null
           proforma_url: string | null
           proveedor_id: string
           supplier_equipment_id: string | null
           tiempo_entrega: string | null
           tipo_cambio: number | null
+          tipo_cotizacion: string
           updated_at: string | null
         }
         Insert: {
@@ -367,14 +371,18 @@ export type Database = {
           id?: string
           incoterm?: string | null
           item_id: string
+          marca?: string | null
+          modelo?: string | null
           moneda?: string
           observaciones?: string | null
           precio_unitario: number
+          procedencia?: string | null
           proforma_url?: string | null
           proveedor_id: string
           supplier_equipment_id?: string | null
           tiempo_entrega?: string | null
           tipo_cambio?: number | null
+          tipo_cotizacion?: string
           updated_at?: string | null
         }
         Update: {
@@ -387,14 +395,18 @@ export type Database = {
           id?: string
           incoterm?: string | null
           item_id?: string
+          marca?: string | null
+          modelo?: string | null
           moneda?: string
           observaciones?: string | null
           precio_unitario?: number
+          procedencia?: string | null
           proforma_url?: string | null
           proveedor_id?: string
           supplier_equipment_id?: string | null
           tiempo_entrega?: string | null
           tipo_cambio?: number | null
+          tipo_cotizacion?: string
           updated_at?: string | null
         }
         Relationships: [
