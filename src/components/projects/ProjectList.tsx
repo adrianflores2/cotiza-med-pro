@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useProjectsData } from "@/hooks/useProjectsData";
-import { ProjectDetail } from "./ProjectDetail";
+import { ProjectDetailWithFilters } from "./ProjectDetailWithFilters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,10 +44,10 @@ export const ProjectList = ({ onNewProject }: ProjectListProps) => {
   const { projects, isLoading, error } = useProjectsData();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-  // Si hay un proyecto seleccionado, mostrar la vista detallada
+  // Si hay un proyecto seleccionado, mostrar la vista detallada con filtros
   if (selectedProjectId) {
     return (
-      <ProjectDetail 
+      <ProjectDetailWithFilters 
         projectId={selectedProjectId} 
         onBack={() => setSelectedProjectId(null)} 
       />

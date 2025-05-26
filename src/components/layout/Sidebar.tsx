@@ -9,7 +9,8 @@ import {
   Settings,
   Building2,
   Users,
-  Sliders
+  Sliders,
+  Package
 } from "lucide-react";
 
 interface SidebarProps {
@@ -24,17 +25,20 @@ const menuItems = {
     { id: "projects", label: "Proyectos", icon: FolderOpen },
     { id: "item-assignment", label: "Asignar Ítems", icon: ListChecks },
     { id: "quotation-comparison", label: "Comparar Cotizaciones", icon: GitCompare },
+    { id: "supplier-management", label: "Gestión de Proveedores", icon: Package },
     { id: "settings", label: "Configuración", icon: Settings },
   ],
   cotizador: [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "quoter-inbox", label: "Mi Bandeja", icon: Inbox },
     { id: "projects", label: "Ver Proyectos", icon: FolderOpen },
+    { id: "supplier-management", label: "Gestión de Proveedores", icon: Package },
   ],
   comercial: [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "quotation-comparison", label: "Comparar Cotizaciones", icon: GitCompare },
     { id: "projects", label: "Proyectos", icon: FolderOpen },
+    { id: "supplier-management", label: "Gestión de Proveedores", icon: Package },
   ],
   admin: [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -42,6 +46,7 @@ const menuItems = {
     { id: "item-assignment", label: "Asignar Ítems", icon: ListChecks },
     { id: "quoter-inbox", label: "Bandejas", icon: Inbox },
     { id: "quotation-comparison", label: "Comparar Cotizaciones", icon: GitCompare },
+    { id: "supplier-management", label: "Gestión de Proveedores", icon: Package },
     { id: "user-management", label: "Gestión de Usuarios", icon: Users },
     { id: "assignment-rules", label: "Reglas de Asignación", icon: Sliders },
     { id: "settings", label: "Administración", icon: Settings },

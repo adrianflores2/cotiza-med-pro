@@ -10,6 +10,7 @@ import { QuoterInbox } from "@/components/quoter/QuoterInbox";
 import { QuotationComparison } from "@/components/quotations/QuotationComparison";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { AssignmentRules } from "@/components/admin/AssignmentRules";
+import { SupplierManagement } from "@/components/admin/SupplierManagement";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +66,8 @@ const AppContent = () => {
           return <QuoterInbox />;
         case "quotation-comparison":
           return <QuotationComparison />;
+        case "supplier-management":
+          return <SupplierManagement />;
         case "user-management":
           return <UserManagement />;
         case "assignment-rules":
