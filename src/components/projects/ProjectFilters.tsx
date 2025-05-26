@@ -28,8 +28,14 @@ export const ProjectFilters = ({
 }: ProjectFiltersProps) => {
   console.log('ProjectFilters: gruposDisponibles:', gruposDisponibles);
   
-  // Filter out any empty or invalid values from gruposDisponibles
-  const validGrupos = gruposDisponibles.filter(grupo => grupo && grupo.trim() !== '');
+  // More robust filtering - ensure values are strings and not empty
+  const validGrupos = gruposDisponibles.filter(grupo => {
+    const isValid = typeof grupo === 'string' && grupo.trim() !== '' && grupo !== null && grupo !== undefined;
+    console.log('ProjectFilters: validating grupo:', grupo, 'isValid:', isValid);
+    return isValid;
+  });
+  
+  console.log('ProjectFilters: validGrupos after filtering:', validGrupos);
   
   return (
     <div className="bg-white p-4 rounded-lg border space-y-4">
@@ -68,11 +74,14 @@ export const ProjectFilters = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los grupos</SelectItem>
-              {validGrupos.map((grupo) => (
-                <SelectItem key={grupo} value={grupo}>
-                  {grupo}
-                </SelectItem>
-              ))}
+              {validGrupos.map((grupo) => {
+                console.log('ProjectFilters: rendering SelectItem for grupo:', grupo);
+                return (
+                  <SelectItem key={grupo} value={grupo}>
+                    {grupo}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>

@@ -53,16 +53,20 @@ export const ProjectDetailWithFilters = ({ projectId, onBack }: ProjectDetailWit
     setEstado("all");
   };
 
-  // Obtener grupos únicos para el filtro - filter out empty values
+  // More robust filtering for unique groups - ensure no empty values
   const gruposDisponibles = project?.project_items
     ? Array.from(new Set(
         project.project_items
           .map(item => item.master_equipment?.grupo_generico)
-          .filter(grupo => grupo && grupo.trim() !== '')
+          .filter(grupo => {
+            const isValid = grupo && typeof grupo === 'string' && grupo.trim() !== '';
+            console.log('ProjectDetailWithFilters: filtering grupo:', grupo, 'isValid:', isValid);
+            return isValid;
+          })
       ))
     : [];
 
-  console.log('ProjectDetailWithFilters: gruposDisponibles calculated:', gruposDisponibles);
+  console.log('ProjectDetailWithFilters: final gruposDisponibles:', gruposDisponibles);
 
   if (isLoading) {
     return (
