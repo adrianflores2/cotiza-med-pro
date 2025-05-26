@@ -26,6 +26,11 @@ export const ProjectFilters = ({
   gruposDisponibles,
   onClearFilters,
 }: ProjectFiltersProps) => {
+  console.log('ProjectFilters: gruposDisponibles:', gruposDisponibles);
+  
+  // Filter out any empty or invalid values from gruposDisponibles
+  const validGrupos = gruposDisponibles.filter(grupo => grupo && grupo.trim() !== '');
+  
   return (
     <div className="bg-white p-4 rounded-lg border space-y-4">
       <div className="flex items-center justify-between">
@@ -63,7 +68,7 @@ export const ProjectFilters = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los grupos</SelectItem>
-              {gruposDisponibles.map((grupo) => (
+              {validGrupos.map((grupo) => (
                 <SelectItem key={grupo} value={grupo}>
                   {grupo}
                 </SelectItem>

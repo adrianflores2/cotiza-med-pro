@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,10 +53,16 @@ export const ProjectDetailWithFilters = ({ projectId, onBack }: ProjectDetailWit
     setEstado("all");
   };
 
-  // Obtener grupos únicos para el filtro
+  // Obtener grupos únicos para el filtro - filter out empty values
   const gruposDisponibles = project?.project_items
-    ? Array.from(new Set(project.project_items.map(item => item.master_equipment?.grupo_generico).filter(Boolean)))
+    ? Array.from(new Set(
+        project.project_items
+          .map(item => item.master_equipment?.grupo_generico)
+          .filter(grupo => grupo && grupo.trim() !== '')
+      ))
     : [];
+
+  console.log('ProjectDetailWithFilters: gruposDisponibles calculated:', gruposDisponibles);
 
   if (isLoading) {
     return (
