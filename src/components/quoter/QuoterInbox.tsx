@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   Eye,
   Edit,
-  Calendar
+  Calendar,
+  Plus
 } from "lucide-react";
 import {
   Select,
@@ -23,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { useItemAssignments } from "@/hooks/useItemAssignments";
 import { useAuth } from "@/hooks/useAuth";
-import { QuotationForm } from "./QuotationForm";
+import { SimplifiedQuotationForm } from "./SimplifiedQuotationForm";
 
 const statusColors = {
   "pendiente": "bg-orange-100 text-orange-800",
@@ -41,17 +42,26 @@ export const QuoterInbox = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
+  const [showNewQuotationForm, setShowNewQuotationForm] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const { assignments, isLoading } = useItemAssignments();
   const { user } = useAuth();
 
   console.log('QuoterInbox: User:', user?.email, 'Assignments:', assignments.length);
 
+  // Si se está mostrando el formulario de nueva cotización
+  if (showNewQuotationForm) {
+    return (
+      <SimplifiedQuotationForm 
+        onBack={() => setShowNewQuotationForm(false)}
+      />
+    );
+  }
+
   // Si hay una asignación seleccionada, mostrar el formulario de cotización
   if (selectedAssignment) {
     return (
-      <QuotationForm 
-        assignment={selectedAssignment}
+      <SimplifiedQuotationForm 
         onBack={() => setSelectedAssignment(null)}
       />
     );
@@ -119,6 +129,10 @@ export const QuoterInbox = () => {
           <h3 className="text-xl font-semibold text-gray-900">Mi Bandeja de Cotización</h3>
           <p className="text-gray-600">Gestiona los ítems asignados para cotización</p>
         </div>
+        <Button onClick={() => setShowNewQuotationForm(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nueva Cotización
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -270,12 +284,18 @@ export const QuoterInbox = () => {
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {userAssignments.length === 0 ? 'No tienes asignaciones' : 'No hay ítems que coincidan'}
           </h3>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-4">
             {userAssignments.length === 0 
               ? 'Espera a que un coordinador te asigne ítems para cotizar.'
               : 'Intenta ajustar los filtros de búsqueda.'
             }
           </p>
+          {userAssignments.length === 0 && (
+            <Button onClick={() => setShowNewQuotationForm(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Crear Nueva Cotización
+            </Button>
+          )}
         </div>
       )}
     </div>
