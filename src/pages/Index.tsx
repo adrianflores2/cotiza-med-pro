@@ -15,11 +15,13 @@ import { useToast } from "@/hooks/use-toast";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { MasterEquipmentPanel } from "@/components/equipment/MasterEquipmentPanel";
+import { useProjects } from "@/hooks/useProjects";
 
 const AppContent = () => {
   const [currentView, setCurrentView] = useState("dashboard");
   const { user, userRole, loading } = useAuth();
   const { toast } = useToast();
+  const { projects } = useProjects();
 
   console.log('AppContent: Render state:', { 
     user: user?.email || 'No user', 
@@ -52,13 +54,46 @@ const AppContent = () => {
 
   console.log('AppContent: User authenticated, showing main app');
 
+  const handleViewProject = (project: any) => {
+    console.log('Viewing project:', project);
+    // For now, just log the project. You can implement project detail view later
+    toast({
+      title: "Ver Proyecto",
+      description: `Abriendo proyecto: ${project.nombre}`,
+    });
+  };
+
+  const handleEditProject = (project: any) => {
+    console.log('Editing project:', project);
+    toast({
+      title: "Editar Proyecto",
+      description: `Editando proyecto: ${project.nombre}`,
+    });
+  };
+
+  const handleDeleteProject = (project: any) => {
+    console.log('Deleting project:', project);
+    toast({
+      title: "Eliminar Proyecto",
+      description: `¿Está seguro de eliminar: ${project.nombre}?`,
+      variant: "destructive",
+    });
+  };
+
   const renderCurrentView = () => {
     try {
       switch (currentView) {
         case "dashboard":
           return <Dashboard userRole={userRole || 'coordinador'} />;
         case "projects":
-          return <ProjectList onNewProject={() => setCurrentView("new-project")} />;
+          return (
+            <ProjectList 
+              projects={projects || []}
+              onViewProject={handleViewProject}
+              onEditProject={handleEditProject}
+              onDeleteProject={handleDeleteProject}
+            />
+          );
         case "new-project":
           return <NewProject onBack={() => setCurrentView("projects")} />;
         case "item-assignment":
