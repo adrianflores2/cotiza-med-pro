@@ -52,9 +52,15 @@ export const useEquipmentChangeLogs = (equipmentId?: string) => {
     }) => {
       console.log('Creating equipment change log:', logData);
       
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { data, error } = await supabase
         .from('equipment_change_logs')
-        .insert(logData)
+        .insert({
+          ...logData,
+          usuario_id: user?.id
+        })
         .select()
         .single();
 
@@ -86,7 +92,7 @@ export const useEquipmentChangeLogs = (equipmentId?: string) => {
     changeLogs: changeLogsQuery.data || [],
     isLoading: changeLogsQuery.isLoading,
     error: changeLogsQuery.error,
-    createChangeLog: createChangeLogMutation.mutate,
+    createChangeLog: createChangeLogMutation.mutateAsync, // Using mutateAsync for better async handling
     isCreatingLog: createChangeLogMutation.isPending,
   };
 };

@@ -113,15 +113,26 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
       moneda?: string;
       notas_cambio?: string;
     }) => {
+      console.log('updatePriceMutation: Updating price for equipment:', id, {
+        precio_unitario,
+        moneda,
+        notas_cambio
+      });
+
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Primero obtener el precio actual para guardarlo como histórico
-      const { data: currentEquipment } = await supabase
+      // First get the current equipment data
+      const { data: currentEquipment, error: fetchError } = await supabase
         .from('supplier_equipments')
         .select('precio_unitario, moneda')
         .eq('id', id)
         .single();
+
+      if (fetchError) {
+        console.error('Error fetching current equipment:', fetchError);
+        throw fetchError;
+      }
 
       const updateData: any = {
         precio_anterior: currentEquipment?.precio_unitario,
@@ -139,6 +150,8 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
         updateData.notas_cambio = notas_cambio;
       }
 
+      console.log('updatePriceMutation: Executing update with data:', updateData);
+
       const { data, error } = await supabase
         .from('supplier_equipments')
         .update(updateData)
@@ -146,10 +159,16 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('updatePriceMutation: Database error:', error);
+        throw error;
+      }
+
+      console.log('updatePriceMutation: Successfully updated equipment:', data);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('updatePriceMutation: Success callback executed');
       queryClient.invalidateQueries({ queryKey: ['supplier-equipments'] });
       toast({
         title: "Precio actualizado",
@@ -157,10 +176,10 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
       });
     },
     onError: (error) => {
-      console.error('Error updating price:', error);
+      console.error('updatePriceMutation: Error callback executed:', error);
       toast({
         title: "Error",
-        description: "No se pudo actualizar el precio",
+        description: `No se pudo actualizar el precio: ${error.message || 'Error desconocido'}`,
         variant: "destructive",
       });
     },
@@ -213,7 +232,7 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
     isLoading: supplierEquipmentsQuery.isLoading,
     error: supplierEquipmentsQuery.error,
     createSupplierEquipment: createSupplierEquipmentMutation.mutate,
-    updatePrice: updatePriceMutation.mutate,
+    updatePrice: updatePriceMutation.mutateAsync, // Using mutateAsync for better error handling
     updateEquipment: updateEquipmentMutation.mutate,
     isCreating: createSupplierEquipmentMutation.isPending,
     isUpdatingPrice: updatePriceMutation.isPending,

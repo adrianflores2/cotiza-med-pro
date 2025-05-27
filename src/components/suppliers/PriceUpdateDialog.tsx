@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
 import { useSupplierEquipments } from '@/hooks/useSupplierEquipments';
+import { useEquipmentChangeLogs } from '@/hooks/useEquipmentChangeLogs';
 
 interface PriceUpdateData {
   precio_unitario: number;
@@ -32,6 +33,7 @@ interface PriceUpdateDialogProps {
 
 export const PriceUpdateDialog = ({ isOpen, onClose, equipment }: PriceUpdateDialogProps) => {
   const { updatePrice, isUpdatingPrice } = useSupplierEquipments();
+  const { createChangeLog } = useEquipmentChangeLogs();
   
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<PriceUpdateData>({
     defaultValues: {
@@ -46,15 +48,31 @@ export const PriceUpdateDialog = ({ isOpen, onClose, equipment }: PriceUpdateDia
   const onSubmit = async (data: PriceUpdateData) => {
     console.log('PriceUpdateDialog: Submitting price update', { equipmentId: equipment.id, data });
     
-    updatePrice({
-      id: equipment.id,
-      precio_unitario: data.precio_unitario,
-      moneda: data.moneda,
-      notas_cambio: data.notas_cambio,
-    });
-    
-    reset();
-    onClose();
+    try {
+      // Update the price
+      await updatePrice({
+        id: equipment.id,
+        precio_unitario: data.precio_unitario,
+        moneda: data.moneda,
+        notas_cambio: data.notas_cambio,
+      });
+
+      // Create a change log entry
+      if (equipment.precio_unitario !== data.precio_unitario) {
+        await createChangeLog({
+          equipment_id: equipment.id,
+          tipo_cambio: 'precio_actualizado',
+          valor_anterior: equipment.precio_unitario ? equipment.precio_unitario.toString() : 'null',
+          valor_nuevo: data.precio_unitario.toString(),
+          observaciones: data.notas_cambio || 'Precio actualizado desde el diálogo de actualización'
+        });
+      }
+      
+      reset();
+      onClose();
+    } catch (error) {
+      console.error('Error updating price:', error);
+    }
   };
 
   const formatCurrentPrice = () => {
@@ -90,6 +108,7 @@ export const PriceUpdateDialog = ({ isOpen, onClose, equipment }: PriceUpdateDia
                   id="precio_unitario"
                   type="number"
                   step="0.01"
+                  min="0.01"
                   {...register('precio_unitario', { 
                     required: 'Este campo es requerido',
                     valueAsNumber: true,
@@ -126,6 +145,7 @@ export const PriceUpdateDialog = ({ isOpen, onClose, equipment }: PriceUpdateDia
                 id="notas_cambio"
                 {...register('notas_cambio')}
                 placeholder="Motivo del cambio de precio, fuente de información, etc."
+                rows={3}
               />
             </div>
 
