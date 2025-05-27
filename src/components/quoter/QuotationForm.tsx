@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { 
   Save, 
   Send, 
@@ -26,50 +26,17 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useSuppliers } from "@/hooks/useSuppliers";
 import { useQuotations } from "@/hooks/useQuotations";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuotationForm } from "@/hooks/useQuotationForm";
 
 interface QuotationFormProps {
   assignment: any;
   onBack: () => void;
 }
 
-interface Accessory {
-  id: string;
-  nombre: string;
-  cantidad: number;
-  precio_unitario: string;
-  moneda: string;
-  incluido_en_proforma: boolean;
-}
-
 export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
-  const [formData, setFormData] = useState({
-    tipo_cotizacion: "nacional",
-    proveedor_razon_social: "",
-    proveedor_ruc: "",
-    proveedor_pais: "",
-    proveedor_contacto: "",
-    proveedor_apellido: "",
-    proveedor_email: "",
-    proveedor_telefono: "",
-    marca: "",
-    modelo: "",
-    procedencia: "",
-    precio_unitario: "",
-    moneda: "USD",
-    tiempo_entrega: "",
-    condiciones: "",
-    incoterm: "",
-    observaciones: "",
-    fecha_vencimiento: "",
-  });
-
-  const [accessories, setAccessories] = useState<Accessory[]>([]);
-  const [isDraft, setIsDraft] = useState(true);
   const { toast } = useToast();
-  const { suppliers } = useSuppliers();
   const { createQuotation, isCreating } = useQuotations();
   const { user } = useAuth();
 
@@ -77,60 +44,30 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
   const equipment = item?.master_equipment;
   const project = item?.projects;
 
-  const handleAddAccessory = () => {
-    const newAccessory: Accessory = {
-      id: Date.now().toString(),
-      nombre: "",
-      cantidad: 1,
-      precio_unitario: "",
-      moneda: "USD",
-      incluido_en_proforma: true,
-    };
-    setAccessories([...accessories, newAccessory]);
-  };
-
-  const handleRemoveAccessory = (id: string) => {
-    setAccessories(accessories.filter(acc => acc.id !== id));
-  };
-
-  const handleAccessoryChange = (id: string, field: keyof Accessory, value: any) => {
-    setAccessories(accessories.map(acc => 
-      acc.id === id ? { ...acc, [field]: value } : acc
-    ));
-  };
+  const {
+    formData,
+    setFormData,
+    accessories,
+    selectedSupplierId,
+    setSelectedSupplierId,
+    isNewSupplier,
+    setIsNewSupplier,
+    uniqueSuppliers,
+    availableBrands,
+    getModelsForBrand,
+    handleAddAccessory,
+    handleRemoveAccessory,
+    handleAccessoryChange,
+    validateForm,
+  } = useQuotationForm(equipment?.id);
 
   const handleSubmit = (asDraft = true) => {
-    if (!formData.precio_unitario.trim()) {
+    const errors = validateForm();
+    
+    if (errors.length > 0) {
       toast({
-        title: "Error",
-        description: "El precio unitario es requerido",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.proveedor_razon_social.trim()) {
-      toast({
-        title: "Error",
-        description: "La razón social del proveedor es requerida",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.marca.trim() || !formData.modelo.trim()) {
-      toast({
-        title: "Error",
-        description: "La marca y modelo son requeridos",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (formData.tipo_cotizacion === "importado" && !formData.incoterm) {
-      toast({
-        title: "Error",
-        description: "El incoterm es requerido para cotizaciones de importación",
+        title: "Error de validación",
+        description: errors.join(', '),
         variant: "destructive",
       });
       return;
@@ -216,7 +153,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
             <Label className="text-base font-medium">Tipo de Cotización *</Label>
             <RadioGroup 
               value={formData.tipo_cotizacion} 
-              onValueChange={(value) => setFormData({ ...formData, tipo_cotizacion: value })}
+              onValueChange={(value) => setFormData({ ...formData, tipo_cotizacion: value as 'nacional' | 'importado' })}
               className="flex space-x-4 mt-2"
             >
               <div className="flex items-center space-x-2">
@@ -229,6 +166,42 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
               </div>
             </RadioGroup>
           </div>
+
+          {/* Modo de Entrada */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Modo de Entrada</CardTitle>
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="new-supplier">Nuevo Proveedor</Label>
+                  <Switch
+                    id="new-supplier"
+                    checked={isNewSupplier}
+                    onCheckedChange={setIsNewSupplier}
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!isNewSupplier && uniqueSuppliers.length > 0 && (
+                <div className="mb-4">
+                  <Label htmlFor="existing-supplier">Seleccionar Proveedor Existente</Label>
+                  <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un proveedor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {uniqueSuppliers.map((supplier) => (
+                        <SelectItem key={supplier.suppliers.id} value={supplier.suppliers.id}>
+                          {supplier.suppliers.razon_social} ({supplier.suppliers.pais || 'Sin país'})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Información del Proveedor */}
           <Card>
@@ -247,25 +220,31 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_razon_social}
                     onChange={(e) => setFormData({ ...formData, proveedor_razon_social: e.target.value })}
                     placeholder="Nombre de la empresa"
+                    disabled={!isNewSupplier && selectedSupplierId !== ''}
                     required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="proveedor_ruc">RUC</Label>
+                  <Label htmlFor="proveedor_pais">País *</Label>
+                  <Input
+                    id="proveedor_pais"
+                    value={formData.proveedor_pais}
+                    onChange={(e) => setFormData({ ...formData, proveedor_pais: e.target.value })}
+                    placeholder="Ej: Perú"
+                    disabled={!isNewSupplier && selectedSupplierId !== ''}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="proveedor_ruc">
+                    RUC {formData.proveedor_pais?.toLowerCase().includes('per') && '*'}
+                  </Label>
                   <Input
                     id="proveedor_ruc"
                     value={formData.proveedor_ruc}
                     onChange={(e) => setFormData({ ...formData, proveedor_ruc: e.target.value })}
                     placeholder="20123456789"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="proveedor_pais">País</Label>
-                  <Input
-                    id="proveedor_pais"
-                    value={formData.proveedor_pais}
-                    onChange={(e) => setFormData({ ...formData, proveedor_pais: e.target.value })}
-                    placeholder="Perú"
+                    disabled={!isNewSupplier && selectedSupplierId !== ''}
+                    required={formData.proveedor_pais?.toLowerCase().includes('per')}
                   />
                 </div>
                 <div>
@@ -275,6 +254,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_contacto}
                     onChange={(e) => setFormData({ ...formData, proveedor_contacto: e.target.value })}
                     placeholder="Nombre del contacto"
+                    disabled={!isNewSupplier && selectedSupplierId !== ''}
                   />
                 </div>
                 <div>
@@ -284,6 +264,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_apellido}
                     onChange={(e) => setFormData({ ...formData, proveedor_apellido: e.target.value })}
                     placeholder="Apellido del contacto"
+                    disabled={!isNewSupplier && selectedSupplierId !== ''}
                   />
                 </div>
                 <div>
@@ -294,6 +275,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_email}
                     onChange={(e) => setFormData({ ...formData, proveedor_email: e.target.value })}
                     placeholder="contacto@empresa.com"
+                    disabled={!isNewSupplier && selectedSupplierId !== ''}
                   />
                 </div>
                 <div>
@@ -303,6 +285,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_telefono}
                     onChange={(e) => setFormData({ ...formData, proveedor_telefono: e.target.value })}
                     placeholder="+51 999 999 999"
+                    disabled={!isNewSupplier && selectedSupplierId !== ''}
                   />
                 </div>
               </div>
@@ -321,23 +304,59 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="marca">Marca *</Label>
-                  <Input
-                    id="marca"
-                    value={formData.marca}
-                    onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
-                    placeholder="Ej: Philips"
-                    required
-                  />
+                  {!isNewSupplier && availableBrands.length > 0 ? (
+                    <Select 
+                      value={formData.marca} 
+                      onValueChange={(value) => setFormData({ ...formData, marca: value, modelo: '' })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar marca" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableBrands.map((brand) => (
+                          <SelectItem key={brand} value={brand}>
+                            {brand}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id="marca"
+                      value={formData.marca}
+                      onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+                      placeholder="Ej: Philips"
+                      required
+                    />
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="modelo">Modelo *</Label>
-                  <Input
-                    id="modelo"
-                    value={formData.modelo}
-                    onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
-                    placeholder="Ej: MX450"
-                    required
-                  />
+                  {!isNewSupplier && formData.marca && getModelsForBrand(formData.marca).length > 0 ? (
+                    <Select 
+                      value={formData.modelo} 
+                      onValueChange={(value) => setFormData({ ...formData, modelo: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar modelo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getModelsForBrand(formData.marca).map((model) => (
+                          <SelectItem key={model} value={model}>
+                            {model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id="modelo"
+                      value={formData.modelo}
+                      onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
+                      placeholder="Ej: MX450"
+                      required
+                    />
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="procedencia">Procedencia (País de Origen)</Label>
