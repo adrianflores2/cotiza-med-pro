@@ -125,7 +125,33 @@ export const useProjectsData = () => {
     mutationFn: async (projectId: string) => {
       console.log('Deleting project:', projectId);
 
-      // First delete all project items
+      // First get all project items for this project
+      const { data: projectItems, error: fetchError } = await supabase
+        .from('project_items')
+        .select('id')
+        .eq('proyecto_id', projectId);
+
+      if (fetchError) {
+        console.error('Error fetching project items:', fetchError);
+        throw fetchError;
+      }
+
+      // Delete item assignments for all project items
+      if (projectItems && projectItems.length > 0) {
+        const itemIds = projectItems.map(item => item.id);
+        
+        const { error: assignmentsError } = await supabase
+          .from('item_assignments')
+          .delete()
+          .in('item_id', itemIds);
+
+        // Note: This might fail if there are no assignments, but that's okay
+        if (assignmentsError) {
+          console.warn('Warning deleting item assignments:', assignmentsError);
+        }
+      }
+
+      // Delete all project items
       const { error: itemsError } = await supabase
         .from('project_items')
         .delete()
@@ -134,17 +160,6 @@ export const useProjectsData = () => {
       if (itemsError) {
         console.error('Error deleting project items:', itemsError);
         throw itemsError;
-      }
-
-      // Then delete item assignments
-      const { error: assignmentsError } = await supabase
-        .from('item_assignments')
-        .delete()
-        .eq('item_id', 'IN (SELECT id FROM project_items WHERE proyecto_id = $1)', projectId);
-
-      // Note: This might fail if there are no assignments, but that's okay
-      if (assignmentsError) {
-        console.warn('Warning deleting item assignments:', assignmentsError);
       }
 
       // Finally delete the project
