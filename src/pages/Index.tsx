@@ -1,8 +1,10 @@
+
 import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { NewProject } from "@/components/projects/NewProject";
+import { ProjectDetailView } from "@/components/projects/ProjectDetailView";
 import { ItemAssignment } from "@/components/items/ItemAssignment";
 import { QuoterInbox } from "@/components/quoter/QuoterInbox";
 import { QuotationComparison } from "@/components/quotations/QuotationComparison";
@@ -19,6 +21,7 @@ import { useProjects } from "@/hooks/useProjects";
 
 const AppContent = () => {
   const [currentView, setCurrentView] = useState("dashboard");
+  const [selectedProject, setSelectedProject] = useState<any>(null);
   const { user, userRole, loading } = useAuth();
   const { toast } = useToast();
   const { projects } = useProjects();
@@ -56,28 +59,38 @@ const AppContent = () => {
 
   const handleViewProject = (project: any) => {
     console.log('Viewing project:', project);
-    // For now, just log the project. You can implement project detail view later
-    toast({
-      title: "Ver Proyecto",
-      description: `Abriendo proyecto: ${project.nombre}`,
-    });
+    setSelectedProject(project);
+    setCurrentView("project-detail");
   };
 
   const handleEditProject = (project: any) => {
     console.log('Editing project:', project);
+    setSelectedProject(project);
+    // TODO: Implement edit project functionality
     toast({
       title: "Editar Proyecto",
-      description: `Editando proyecto: ${project.nombre}`,
+      description: `Función de edición en desarrollo para: ${project.nombre}`,
     });
   };
 
   const handleDeleteProject = (project: any) => {
     console.log('Deleting project:', project);
+    // TODO: Implement delete project functionality
     toast({
       title: "Eliminar Proyecto",
       description: `¿Está seguro de eliminar: ${project.nombre}?`,
       variant: "destructive",
     });
+  };
+
+  const handleNewProject = () => {
+    console.log('Creating new project');
+    setCurrentView("new-project");
+  };
+
+  const handleBackToProjects = () => {
+    setSelectedProject(null);
+    setCurrentView("projects");
   };
 
   const renderCurrentView = () => {
@@ -92,10 +105,28 @@ const AppContent = () => {
               onViewProject={handleViewProject}
               onEditProject={handleEditProject}
               onDeleteProject={handleDeleteProject}
+              onNewProject={handleNewProject}
+            />
+          );
+        case "project-detail":
+          return selectedProject ? (
+            <ProjectDetailView
+              project={selectedProject}
+              onBack={handleBackToProjects}
+              onEdit={handleEditProject}
+              onDelete={handleDeleteProject}
+            />
+          ) : (
+            <ProjectList 
+              projects={projects || []}
+              onViewProject={handleViewProject}
+              onEditProject={handleEditProject}
+              onDeleteProject={handleDeleteProject}
+              onNewProject={handleNewProject}
             />
           );
         case "new-project":
-          return <NewProject onBack={() => setCurrentView("projects")} />;
+          return <NewProject onBack={handleBackToProjects} />;
         case "item-assignment":
           return <ItemAssignment />;
         case "quoter-inbox":
