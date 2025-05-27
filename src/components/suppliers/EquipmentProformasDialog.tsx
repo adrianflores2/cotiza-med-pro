@@ -4,8 +4,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileText, ExternalLink, Plus } from 'lucide-react';
+import { FileText, ExternalLink, Trash2 } from 'lucide-react';
 import { useIndependentProformas } from '@/hooks/useIndependentProformas';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface EquipmentProformasDialogProps {
   isOpen: boolean;
@@ -20,7 +31,7 @@ export const EquipmentProformasDialog = ({
   equipmentId, 
   equipmentName 
 }: EquipmentProformasDialogProps) => {
-  const { proformas, isLoading } = useIndependentProformas(equipmentId);
+  const { proformas, isLoading, deleteProforma, isDeleting } = useIndependentProformas(equipmentId);
 
   const formatPrice = (price: number | null, currency: string = 'USD') => {
     if (!price) return 'No definido';
@@ -34,9 +45,13 @@ export const EquipmentProformasDialog = ({
     return new Date(dateString).toLocaleDateString('es-PE');
   };
 
+  const handleDeleteProforma = (proformaId: string) => {
+    deleteProforma(proformaId);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-6xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -44,7 +59,7 @@ export const EquipmentProformasDialog = ({
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="flex-1 overflow-auto">
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -59,7 +74,7 @@ export const EquipmentProformasDialog = ({
               </p>
             </div>
           ) : (
-            <>
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
                   {proformas.length} proforma{proformas.length !== 1 ? 's' : ''} encontrada{proformas.length !== 1 ? 's' : ''}
@@ -141,6 +156,35 @@ export const EquipmentProformasDialog = ({
                                 </a>
                               </Button>
                             )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isDeleting}
+                                  title="Eliminar proforma"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Eliminar proforma?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta acción no se puede deshacer. La proforma será eliminada permanentemente.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteProforma(proforma.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Eliminar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -160,14 +204,14 @@ export const EquipmentProformasDialog = ({
                   </span>
                 </div>
               )}
-            </>
+            </div>
           )}
+        </div>
           
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={onClose}>
-              Cerrar
-            </Button>
-          </div>
+        <div className="flex justify-end pt-4">
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -4,8 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, ExternalLink } from 'lucide-react';
-import { useSupplierEquipments } from '@/hooks/useSupplierEquipments';
+import { FileText, ExternalLink, Trash2 } from 'lucide-react';
+import { useIndependentProformas } from '@/hooks/useIndependentProformas';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface IndependentProforma {
   id: string;
@@ -39,6 +50,8 @@ interface IndependentProformasViewProps {
 }
 
 export const IndependentProformasView = ({ proformas, isLoading }: IndependentProformasViewProps) => {
+  const { deleteProforma, isDeleting } = useIndependentProformas();
+
   const formatPrice = (price: number | null, currency: string = 'USD') => {
     if (!price) return 'No definido';
     return new Intl.NumberFormat('es-PE', {
@@ -49,6 +62,10 @@ export const IndependentProformasView = ({ proformas, isLoading }: IndependentPr
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-PE');
+  };
+
+  const handleDeleteProforma = (proformaId: string) => {
+    deleteProforma(proformaId);
   };
 
   if (isLoading) {
@@ -172,6 +189,35 @@ export const IndependentProformasView = ({ proformas, isLoading }: IndependentPr
                           </a>
                         </Button>
                       )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isDeleting}
+                            title="Eliminar proforma"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar proforma?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta acción no se puede deshacer. La proforma será eliminada permanentemente.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteProforma(proforma.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </TableCell>
                 </TableRow>

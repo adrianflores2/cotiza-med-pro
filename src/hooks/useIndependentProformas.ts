@@ -47,7 +47,6 @@ export const useIndependentProformas = (supplierEquipmentId?: string) => {
       console.log('useIndependentProformas: Fetched proformas:', data?.length || 0);
       return data || [];
     },
-    // Remove the enabled condition so it can fetch all proformas when no supplierEquipmentId is provided
   });
 
   const createProformaMutation = useMutation({
@@ -93,11 +92,46 @@ export const useIndependentProformas = (supplierEquipmentId?: string) => {
     },
   });
 
+  const deleteProformaMutation = useMutation({
+    mutationFn: async (proformaId: string) => {
+      console.log('Deleting independent proforma:', proformaId);
+      
+      const { error } = await supabase
+        .from('independent_proformas')
+        .delete()
+        .eq('id', proformaId);
+
+      if (error) {
+        console.error('Error deleting proforma:', error);
+        throw error;
+      }
+
+      return proformaId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['independent-proformas'] });
+      toast({
+        title: "Proforma eliminada",
+        description: "La proforma se eliminó correctamente",
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting proforma:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la proforma",
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     proformas: independentProformasQuery.data || [],
     isLoading: independentProformasQuery.isLoading,
     error: independentProformasQuery.error,
     createProforma: createProformaMutation.mutate,
     isCreating: createProformaMutation.isPending,
+    deleteProforma: deleteProformaMutation.mutate,
+    isDeleting: deleteProformaMutation.isPending,
   };
 };
