@@ -3,12 +3,15 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
 import { useSuppliers } from '@/hooks/useSuppliers';
+import type { SupplierType } from '@/types/database';
 
 interface SupplierFormData {
   razon_social: string;
   ruc: string;
+  tipo_proveedor: SupplierType;
   pais?: string;
   nombre_contacto?: string;
   apellido_contacto?: string;
@@ -18,7 +21,13 @@ interface SupplierFormData {
 
 export const SupplierForm = () => {
   const { createSupplier, isCreating } = useSuppliers();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<SupplierFormData>();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<SupplierFormData>({
+    defaultValues: {
+      tipo_proveedor: 'nacional'
+    }
+  });
+
+  const tipoProveedor = watch('tipo_proveedor');
 
   const onSubmit = async (data: SupplierFormData) => {
     createSupplier(data);
@@ -53,11 +62,27 @@ export const SupplierForm = () => {
         </div>
 
         <div className="space-y-2">
+          <Label htmlFor="tipo_proveedor">Tipo de Proveedor *</Label>
+          <Select
+            value={tipoProveedor}
+            onValueChange={(value: SupplierType) => setValue('tipo_proveedor', value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nacional">Nacional</SelectItem>
+              <SelectItem value="internacional">Internacional</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="pais">País</Label>
           <Input
             id="pais"
             {...register('pais')}
-            placeholder="Perú"
+            placeholder={tipoProveedor === 'nacional' ? 'Perú' : 'País de origen'}
           />
         </div>
 
@@ -89,7 +114,7 @@ export const SupplierForm = () => {
           />
         </div>
 
-        <div className="space-y-2 col-span-2">
+        <div className="space-y-2">
           <Label htmlFor="telefono_contacto">Teléfono de Contacto</Label>
           <Input
             id="telefono_contacto"

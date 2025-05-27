@@ -56,6 +56,54 @@ export type Database = {
           },
         ]
       }
+      equipment_change_logs: {
+        Row: {
+          equipment_id: string | null
+          fecha_cambio: string | null
+          id: string
+          observaciones: string | null
+          tipo_cambio: string
+          usuario_id: string | null
+          valor_anterior: string | null
+          valor_nuevo: string | null
+        }
+        Insert: {
+          equipment_id?: string | null
+          fecha_cambio?: string | null
+          id?: string
+          observaciones?: string | null
+          tipo_cambio: string
+          usuario_id?: string | null
+          valor_anterior?: string | null
+          valor_nuevo?: string | null
+        }
+        Update: {
+          equipment_id?: string | null
+          fecha_cambio?: string | null
+          id?: string
+          observaciones?: string | null
+          tipo_cambio?: string
+          usuario_id?: string | null
+          valor_anterior?: string | null
+          valor_nuevo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_change_logs_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "master_equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_change_logs_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       independent_proformas: {
         Row: {
           archivo_url: string | null
@@ -154,29 +202,38 @@ export type Database = {
       master_equipment: {
         Row: {
           codigo: string
+          codigos_alternativos: string[] | null
           cotizador_predeterminado_id: string | null
           created_at: string | null
           grupo_generico: string
           id: string
           nombre_equipo: string
+          nombres_alternativos: string[] | null
+          observaciones_inconsistencias: string | null
           updated_at: string | null
         }
         Insert: {
           codigo: string
+          codigos_alternativos?: string[] | null
           cotizador_predeterminado_id?: string | null
           created_at?: string | null
           grupo_generico: string
           id?: string
           nombre_equipo: string
+          nombres_alternativos?: string[] | null
+          observaciones_inconsistencias?: string | null
           updated_at?: string | null
         }
         Update: {
           codigo?: string
+          codigos_alternativos?: string[] | null
           cotizador_predeterminado_id?: string | null
           created_at?: string | null
           grupo_generico?: string
           id?: string
           nombre_equipo?: string
+          nombres_alternativos?: string[] | null
+          observaciones_inconsistencias?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -513,12 +570,14 @@ export type Database = {
           marca: string
           modelo: string
           moneda: string | null
+          notas_cambio: string | null
           precio_anterior: number | null
           precio_unitario: number | null
           procedencia: string | null
           proveedor_id: string
           tipo_cambio: number | null
           updated_at: string | null
+          validado_por_coordinador: boolean | null
         }
         Insert: {
           activo?: boolean | null
@@ -533,12 +592,14 @@ export type Database = {
           marca: string
           modelo: string
           moneda?: string | null
+          notas_cambio?: string | null
           precio_anterior?: number | null
           precio_unitario?: number | null
           procedencia?: string | null
           proveedor_id: string
           tipo_cambio?: number | null
           updated_at?: string | null
+          validado_por_coordinador?: boolean | null
         }
         Update: {
           activo?: boolean | null
@@ -553,12 +614,14 @@ export type Database = {
           marca?: string
           modelo?: string
           moneda?: string | null
+          notas_cambio?: string | null
           precio_anterior?: number | null
           precio_unitario?: number | null
           procedencia?: string | null
           proveedor_id?: string
           tipo_cambio?: number | null
           updated_at?: string | null
+          validado_por_coordinador?: boolean | null
         }
         Relationships: [
           {
@@ -588,6 +651,7 @@ export type Database = {
           razon_social: string
           ruc: string
           telefono_contacto: string | null
+          tipo_proveedor: string | null
           updated_at: string | null
         }
         Insert: {
@@ -600,6 +664,7 @@ export type Database = {
           razon_social: string
           ruc: string
           telefono_contacto?: string | null
+          tipo_proveedor?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -612,6 +677,7 @@ export type Database = {
           razon_social?: string
           ruc?: string
           telefono_contacto?: string | null
+          tipo_proveedor?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -686,6 +752,15 @@ export type Database = {
         }
         Returns: string
       }
+      find_similar_equipment: {
+        Args: { search_name: string; similarity_threshold?: number }
+        Returns: {
+          equipment_id: string
+          codigo: string
+          nombre_equipo: string
+          similarity_score: number
+        }[]
+      }
       get_user_primary_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -696,6 +771,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      normalize_equipment_name: {
+        Args: { input_name: string }
+        Returns: string
       }
     }
     Enums: {

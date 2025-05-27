@@ -2,6 +2,7 @@
 export type UserRole = 'coordinador' | 'cotizador' | 'comercial' | 'admin';
 export type ProjectStatus = 'pendiente' | 'en_proceso' | 'completado' | 'cancelado';
 export type QuotationStatus = 'vigente' | 'vencida' | 'seleccionada' | 'descartada';
+export type SupplierType = 'nacional' | 'internacional';
 
 export interface User {
   id: string;
@@ -23,9 +24,23 @@ export interface MasterEquipment {
   codigo: string;
   grupo_generico: string;
   nombre_equipo: string;
+  nombres_alternativos?: string[];
+  codigos_alternativos?: string[];
+  observaciones_inconsistencias?: string;
   cotizador_predeterminado_id?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface EquipmentChangeLog {
+  id: string;
+  equipment_id: string;
+  tipo_cambio: string;
+  valor_anterior?: string;
+  valor_nuevo?: string;
+  usuario_id?: string;
+  fecha_cambio: string;
+  observaciones?: string;
 }
 
 export interface AssignmentRule {
@@ -71,6 +86,7 @@ export interface Supplier {
   id: string;
   razon_social: string;
   ruc: string;
+  tipo_proveedor?: SupplierType;
   pais?: string;
   nombre_contacto?: string;
   apellido_contacto?: string;
@@ -95,6 +111,8 @@ export interface SupplierEquipment {
   manual_url?: string;
   fecha_cambio_precio?: string;
   fecha_ultima_actualizacion?: string;
+  notas_cambio?: string;
+  validado_por_coordinador?: boolean;
   activo: boolean;
   created_at: string;
   updated_at: string;
