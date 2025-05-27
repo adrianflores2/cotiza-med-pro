@@ -64,11 +64,90 @@ export const useQuotations = () => {
 
       console.log('Supplier ID:', supplierId);
 
+      // Get equipment_id from the item
+      const { data: itemData, error: itemError } = await supabase
+        .from('project_items')
+        .select('equipment_id')
+        .eq('id', quotationData.item_id)
+        .single();
+
+      if (itemError) {
+        console.error('Error getting item equipment_id:', itemError);
+        throw new Error(`Error al obtener información del ítem: ${itemError.message}`);
+      }
+
+      // Check if supplier_equipment already exists
+      const { data: existingSupplierEquipment, error: checkError } = await supabase
+        .from('supplier_equipments')
+        .select('id')
+        .eq('equipment_id', itemData.equipment_id)
+        .eq('proveedor_id', supplierId)
+        .eq('marca', quotationData.marca)
+        .eq('modelo', quotationData.modelo)
+        .eq('activo', true)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking existing supplier equipment:', checkError);
+        throw new Error(`Error al verificar equipo del proveedor: ${checkError.message}`);
+      }
+
+      let supplierEquipmentId = existingSupplierEquipment?.id;
+
+      // If supplier_equipment doesn't exist, create it
+      if (!supplierEquipmentId) {
+        console.log('Creating new supplier equipment entry');
+        const { data: newSupplierEquipment, error: supplierEquipmentError } = await supabase
+          .from('supplier_equipments')
+          .insert({
+            equipment_id: itemData.equipment_id,
+            proveedor_id: supplierId,
+            marca: quotationData.marca,
+            modelo: quotationData.modelo,
+            precio_unitario: quotationData.precio_unitario,
+            moneda: quotationData.moneda,
+            procedencia: quotationData.procedencia,
+            usuario_ultima_modificacion: quotationData.cotizador_id,
+            activo: true,
+          })
+          .select('id')
+          .single();
+
+        if (supplierEquipmentError) {
+          console.error('Error creating supplier equipment:', supplierEquipmentError);
+          throw new Error(`Error al crear equipo del proveedor: ${supplierEquipmentError.message}`);
+        }
+
+        supplierEquipmentId = newSupplierEquipment.id;
+        console.log('New supplier equipment created with ID:', supplierEquipmentId);
+      } else {
+        console.log('Using existing supplier equipment ID:', supplierEquipmentId);
+        
+        // Update the existing supplier equipment with the latest price
+        const { error: updateError } = await supabase
+          .from('supplier_equipments')
+          .update({
+            precio_anterior: quotationData.precio_unitario,
+            precio_unitario: quotationData.precio_unitario,
+            moneda: quotationData.moneda,
+            procedencia: quotationData.procedencia,
+            fecha_ultima_actualizacion: new Date().toISOString().split('T')[0],
+            usuario_ultima_modificacion: quotationData.cotizador_id,
+          })
+          .eq('id', supplierEquipmentId);
+
+        if (updateError) {
+          console.error('Error updating supplier equipment:', updateError);
+          // Don't throw here, just log the error
+        }
+      }
+
       // Create the quotation
       const quotationInsert = {
         item_id: quotationData.item_id,
         cotizador_id: quotationData.cotizador_id,
         proveedor_id: supplierId,
+        supplier_equipment_id: supplierEquipmentId,
         tipo_cotizacion: quotationData.tipo_cotizacion,
         marca: quotationData.marca,
         modelo: quotationData.modelo,
@@ -122,12 +201,14 @@ export const useQuotations = () => {
     onSuccess: () => {
       toast({
         title: "¡Cotización creada!",
-        description: "La cotización se ha guardado correctamente y está disponible para revisión.",
+        description: "La cotización se ha guardado correctamente y el equipo se agregó al catálogo del proveedor.",
       });
       
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['item-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-equipments'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     },
     onError: (error: Error) => {
       console.error('Quotation creation error:', error);

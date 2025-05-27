@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ProjectSelector } from './ProjectSelector';
 import { EquipmentModelSelector } from './EquipmentModelSelector';
 import { SupplierSelector } from './SupplierSelector';
-import { supabase } from '@/integrations/supabase/client';
+import { useQuotations } from '@/hooks/useQuotations';
 import { useAuth } from '@/hooks/useAuth';
 
 interface AccessoryInput {
@@ -59,6 +58,7 @@ export const SimplifiedQuotationForm = ({ onBack, preselectedProject, preselecte
   
   const { toast } = useToast();
   const { user } = useAuth();
+  const { createQuotation, isCreating } = useQuotations();
   
   const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<QuotationFormData>({
     defaultValues: {
@@ -137,70 +137,43 @@ export const SimplifiedQuotationForm = ({ onBack, preselectedProject, preselecte
         throw new Error('Usuario no autenticado');
       }
 
-      // Crear la cotización principal
-      const { data: quotation, error: quotationError } = await supabase
-        .from('quotations')
-        .insert({
-          item_id: data.item_id,
-          proveedor_id: data.proveedor_id,
-          cotizador_id: user.id,
-          tipo_cotizacion: data.tipo_cotizacion,
-          marca: data.marca,
-          modelo: data.modelo,
-          precio_unitario: parseFloat(data.precio_unitario),
-          moneda: data.moneda,
-          tiempo_entrega: data.tiempo_entrega,
-          condiciones: data.condiciones,
-          incoterm: data.incoterm,
-          observaciones: data.observaciones,
-          fecha_vencimiento: data.fecha_vencimiento || null,
-          procedencia: data.procedencia,
-        })
-        .select()
-        .single();
+      // Preparar datos para el hook useQuotations
+      const quotationData = {
+        item_id: data.item_id,
+        cotizador_id: user.id,
+        tipo_cotizacion: data.tipo_cotizacion,
+        marca: data.marca,
+        modelo: data.modelo,
+        procedencia: data.procedencia,
+        precio_unitario: parseFloat(data.precio_unitario),
+        moneda: data.moneda,
+        tiempo_entrega: data.tiempo_entrega,
+        condiciones: data.condiciones,
+        incoterm: data.incoterm,
+        observaciones: data.observaciones,
+        fecha_vencimiento: data.fecha_vencimiento || undefined,
+        
+        // Supplier data
+        proveedor_razon_social: selectedSupplier?.razon_social || '',
+        proveedor_ruc: selectedSupplier?.ruc || '',
+        proveedor_pais: selectedSupplier?.pais || '',
+        proveedor_contacto: selectedSupplier?.nombre_contacto || '',
+        proveedor_apellido: selectedSupplier?.apellido_contacto || '',
+        proveedor_email: selectedSupplier?.email_contacto || '',
+        proveedor_telefono: selectedSupplier?.telefono_contacto || '',
+        
+        // Accessories
+        accessories: data.accessories.filter(acc => acc.nombre.trim()).map(acc => ({
+          nombre: acc.nombre,
+          cantidad: acc.cantidad,
+          precio_unitario: parseFloat(acc.precio_unitario) || undefined,
+          moneda: acc.moneda,
+          incluido_en_proforma: acc.incluido_en_proforma,
+        })),
+      };
 
-      if (quotationError) {
-        console.error('Error creating quotation:', quotationError);
-        throw quotationError;
-      }
-
-      // Crear accesorios si los hay
-      if (data.accessories.length > 0) {
-        const accessoriesData = data.accessories.map(accessory => ({
-          cotizacion_id: quotation.id,
-          nombre: accessory.nombre,
-          cantidad: accessory.cantidad,
-          precio_unitario: parseFloat(accessory.precio_unitario),
-          moneda: accessory.moneda,
-          incluido_en_proforma: accessory.incluido_en_proforma,
-        }));
-
-        const { error: accessoriesError } = await supabase
-          .from('quotation_accessories')
-          .insert(accessoriesData);
-
-        if (accessoriesError) {
-          console.error('Error creating accessories:', accessoriesError);
-          // No lanzamos error aquí para no bloquear la cotización principal
-        }
-      }
-
-      // Actualizar el estado de la asignación a 'cotizado'
-      const { error: assignmentError } = await supabase
-        .from('item_assignments')
-        .update({ estado: 'cotizado' })
-        .eq('item_id', data.item_id)
-        .eq('cotizador_id', user.id);
-
-      if (assignmentError) {
-        console.error('Error updating assignment status:', assignmentError);
-        // No lanzamos error aquí para no bloquear la cotización principal
-      }
-      
-      toast({
-        title: "Cotización creada",
-        description: "La cotización se ha guardado exitosamente y está disponible para comparación",
-      });
+      console.log('Using createQuotation with data:', quotationData);
+      createQuotation(quotationData);
       
       onBack();
     } catch (error) {
@@ -467,9 +440,9 @@ export const SimplifiedQuotationForm = ({ onBack, preselectedProject, preselecte
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Volver
                   </Button>
-                  <Button type="submit">
+                  <Button type="submit" disabled={isCreating}>
                     <Save className="w-4 h-4 mr-2" />
-                    Guardar Cotización
+                    {isCreating ? 'Guardando...' : 'Guardar Cotización'}
                   </Button>
                 </div>
               </form>
