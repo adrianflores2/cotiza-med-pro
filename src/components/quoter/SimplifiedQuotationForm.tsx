@@ -12,8 +12,10 @@ import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
 import { ProjectSelector } from './ProjectSelector';
-import { EquipmentDisplay } from './EquipmentDisplay';
+import { EquipmentModelSelector } from './EquipmentModelSelector';
 import { SupplierSelector } from './SupplierSelector';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AccessoryInput {
   nombre: string;
@@ -46,19 +48,22 @@ interface SimplifiedQuotationFormProps {
 }
 
 export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps) => {
-  const [currentStep, setCurrentStep] = useState<'project' | 'equipment' | 'supplier' | 'quotation'>('project');
+  const [currentStep, setCurrentStep] = useState<'project' | 'model' | 'supplier' | 'quotation'>('project');
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [selectedMarca, setSelectedMarca] = useState<string>('');
+  const [selectedModelo, setSelectedModelo] = useState<string>('');
   
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<QuotationFormData>({
     defaultValues: {
       tipo_cotizacion: 'nacional',
       moneda: 'USD',
       accessories: [],
-      fecha_vencimiento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+      fecha_vencimiento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     }
   });
 
@@ -70,18 +75,34 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
   const watchedTipoCotizacion = watch('tipo_cotizacion');
 
   const handleProjectSelect = (project: any, item: any) => {
+    console.log('Project selected:', project?.nombre, 'Item:', item?.numero_item);
     setSelectedProject(project);
     setSelectedItem(item);
     setValue('proyecto_id', project.id);
     setValue('item_id', item.id);
-    setCurrentStep('equipment');
+    setCurrentStep('model');
   };
 
-  const handleEquipmentContinue = () => {
+  const handleModelSelect = (marca: string, modelo: string) => {
+    console.log('Model selected:', marca, modelo);
+    setSelectedMarca(marca);
+    setSelectedModelo(modelo);
+    setValue('marca', marca);
+    setValue('modelo', modelo);
+    setCurrentStep('supplier');
+  };
+
+  const handleNewModel = (marca: string, modelo: string) => {
+    console.log('New model created:', marca, modelo);
+    setSelectedMarca(marca);
+    setSelectedModelo(modelo);
+    setValue('marca', marca);
+    setValue('modelo', modelo);
     setCurrentStep('supplier');
   };
 
   const handleSupplierSelect = (supplier: any) => {
+    console.log('Supplier selected:', supplier?.razon_social);
     setSelectedSupplier(supplier);
     setValue('proveedor_id', supplier.id);
     setCurrentStep('quotation');
@@ -101,8 +122,57 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
     try {
       console.log('Submitting quotation:', data);
       
-      // Here you would implement the actual submission logic
-      // For now, we'll just show a success message
+      if (!user?.id) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      // Crear la cotización principal
+      const { data: quotation, error: quotationError } = await supabase
+        .from('quotations')
+        .insert({
+          item_id: data.item_id,
+          proveedor_id: data.proveedor_id,
+          cotizador_id: user.id,
+          tipo_cotizacion: data.tipo_cotizacion,
+          marca: data.marca,
+          modelo: data.modelo,
+          precio_unitario: parseFloat(data.precio_unitario),
+          moneda: data.moneda,
+          tiempo_entrega: data.tiempo_entrega,
+          condiciones: data.condiciones,
+          incoterm: data.incoterm,
+          observaciones: data.observaciones,
+          fecha_vencimiento: data.fecha_vencimiento || null,
+          procedencia: data.procedencia,
+        })
+        .select()
+        .single();
+
+      if (quotationError) {
+        console.error('Error creating quotation:', quotationError);
+        throw quotationError;
+      }
+
+      // Crear accesorios si los hay
+      if (data.accessories.length > 0) {
+        const accessoriesData = data.accessories.map(accessory => ({
+          cotizacion_id: quotation.id,
+          nombre: accessory.nombre,
+          cantidad: accessory.cantidad,
+          precio_unitario: parseFloat(accessory.precio_unitario),
+          moneda: accessory.moneda,
+          incluido_en_proforma: accessory.incluido_en_proforma,
+        }));
+
+        const { error: accessoriesError } = await supabase
+          .from('quotation_accessories')
+          .insert(accessoriesData);
+
+        if (accessoriesError) {
+          console.error('Error creating accessories:', accessoriesError);
+          // No lanzamos error aquí para no bloquear la cotización principal
+        }
+      }
       
       toast({
         title: "Cotización creada",
@@ -129,12 +199,13 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
           />
         );
       
-      case 'equipment':
+      case 'model':
         return (
-          <EquipmentDisplay 
+          <EquipmentModelSelector 
             project={selectedProject}
             item={selectedItem}
-            onContinue={handleEquipmentContinue}
+            onModelSelect={handleModelSelect}
+            onNewModel={handleNewModel}
             onBack={() => setCurrentStep('project')}
           />
         );
@@ -144,7 +215,7 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
           <SupplierSelector 
             equipmentId={selectedItem?.equipment_id}
             onSupplierSelect={handleSupplierSelect}
-            onBack={() => setCurrentStep('equipment')}
+            onBack={() => setCurrentStep('model')}
           />
         );
       
@@ -157,19 +228,27 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
                 <div className="flex items-center space-x-2">
                   <Badge variant="outline">{selectedProject?.nombre}</Badge>
                   <Badge variant="secondary">Ítem #{selectedItem?.numero_item}</Badge>
+                  <Badge variant="outline">{selectedMarca} {selectedModelo}</Badge>
                 </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Supplier Info Display */}
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Proveedor Seleccionado</h4>
-                  <p className="text-sm text-gray-600">{selectedSupplier?.razon_social}</p>
-                  {selectedSupplier?.ruc && <p className="text-sm text-gray-500">RUC: {selectedSupplier.ruc}</p>}
+                {/* Equipment and Supplier Info Display */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Equipo</h4>
+                    <p className="text-sm text-gray-600">{selectedItem?.master_equipment?.nombre_equipo}</p>
+                    <p className="text-sm text-gray-500">{selectedMarca} - {selectedModelo}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Proveedor</h4>
+                    <p className="text-sm text-gray-600">{selectedSupplier?.razon_social}</p>
+                    {selectedSupplier?.ruc && <p className="text-sm text-gray-500">RUC: {selectedSupplier.ruc}</p>}
+                  </div>
                 </div>
 
-                {/* Equipment and Pricing */}
+                {/* Quotation Details */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="tipo_cotizacion">Tipo de Cotización *</Label>
@@ -196,26 +275,6 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
                         <SelectItem value="EUR">EUR - Euro</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="marca">Marca *</Label>
-                    <Input
-                      id="marca"
-                      {...register('marca', { required: 'La marca es requerida' })}
-                      placeholder="Ingrese la marca"
-                    />
-                    {errors.marca && <p className="text-sm text-red-600 mt-1">{errors.marca.message}</p>}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="modelo">Modelo *</Label>
-                    <Input
-                      id="modelo"
-                      {...register('modelo', { required: 'El modelo es requerido' })}
-                      placeholder="Ingrese el modelo"
-                    />
-                    {errors.modelo && <p className="text-sm text-red-600 mt-1">{errors.modelo.message}</p>}
                   </div>
 
                   <div>
@@ -400,6 +459,11 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
     }
   };
 
+  const getStepIndex = (step: string) => {
+    const steps = ['project', 'model', 'supplier', 'quotation'];
+    return steps.indexOf(step);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -410,18 +474,18 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
           </Button>
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Nueva Cotización</h2>
-            <p className="text-gray-600">Sistema simplificado de cotización</p>
+            <p className="text-gray-600">Sistema de cotización mejorado</p>
           </div>
         </div>
         
         {/* Step indicator */}
         <div className="flex items-center space-x-2">
-          {['project', 'equipment', 'supplier', 'quotation'].map((step, index) => (
+          {['project', 'model', 'supplier', 'quotation'].map((step, index) => (
             <div key={step} className="flex items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                 currentStep === step 
                   ? 'bg-blue-600 text-white' 
-                  : index < ['project', 'equipment', 'supplier', 'quotation'].indexOf(currentStep)
+                  : index < getStepIndex(currentStep)
                     ? 'bg-green-600 text-white'
                     : 'bg-gray-200 text-gray-600'
               }`}>

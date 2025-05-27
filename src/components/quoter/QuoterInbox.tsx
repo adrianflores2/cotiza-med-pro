@@ -6,14 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
   Search, 
-  Filter,
   Clock,
-  AlertTriangle,
   CheckCircle2,
   Eye,
   Edit,
   Calendar,
-  Plus
+  Plus,
+  Package
 } from "lucide-react";
 import {
   Select,
@@ -29,13 +28,13 @@ import { SimplifiedQuotationForm } from "./SimplifiedQuotationForm";
 const statusColors = {
   "pendiente": "bg-orange-100 text-orange-800",
   "en_proceso": "bg-blue-100 text-blue-800",
-  "completado": "bg-green-100 text-green-800",
+  "cotizado": "bg-green-100 text-green-800",
 };
 
 const statusLabels = {
   "pendiente": "Pendiente",
   "en_proceso": "En progreso", 
-  "completado": "Completado",
+  "cotizado": "Cotizado",
 };
 
 export const QuoterInbox = () => {
@@ -43,11 +42,10 @@ export const QuoterInbox = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [showNewQuotationForm, setShowNewQuotationForm] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const { assignments, isLoading } = useItemAssignments();
   const { user } = useAuth();
 
-  console.log('QuoterInbox: User:', user?.email, 'Assignments:', assignments.length);
+  console.log('QuoterInbox: User:', user?.email, 'Total assignments:', assignments.length);
 
   // Si se está mostrando el formulario de nueva cotización
   if (showNewQuotationForm) {
@@ -58,18 +56,9 @@ export const QuoterInbox = () => {
     );
   }
 
-  // Si hay una asignación seleccionada, mostrar el formulario de cotización
-  if (selectedAssignment) {
-    return (
-      <SimplifiedQuotationForm 
-        onBack={() => setSelectedAssignment(null)}
-      />
-    );
-  }
-
   // Filtrar asignaciones para el usuario actual
   const userAssignments = assignments.filter(assignment => 
-    assignment.cotizador_id === user?.id
+    assignment.cotizador_id === user?.id && assignment.project_items
   );
 
   console.log('QuoterInbox: User assignments:', userAssignments.length);
@@ -103,7 +92,7 @@ export const QuoterInbox = () => {
   // Calcular estadísticas
   const pendingCount = userAssignments.filter(a => a.estado === "pendiente").length;
   const inProgressCount = userAssignments.filter(a => a.estado === "en_proceso").length;
-  const completedCount = userAssignments.filter(a => a.estado === "completado").length;
+  const quotedCount = userAssignments.filter(a => a.estado === "cotizado").length;
 
   if (isLoading) {
     return (
@@ -135,6 +124,7 @@ export const QuoterInbox = () => {
         </Button>
       </div>
 
+      {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">
@@ -171,14 +161,15 @@ export const QuoterInbox = () => {
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{completedCount}</p>
-                <p className="text-sm text-gray-600">Completados</p>
+                <p className="text-2xl font-bold text-gray-900">{quotedCount}</p>
+                <p className="text-sm text-gray-600">Cotizados</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -197,7 +188,7 @@ export const QuoterInbox = () => {
             <SelectItem value="all">Todos los estados</SelectItem>
             <SelectItem value="pendiente">Pendiente</SelectItem>
             <SelectItem value="en_proceso">En progreso</SelectItem>
-            <SelectItem value="completado">Completado</SelectItem>
+            <SelectItem value="cotizado">Cotizado</SelectItem>
           </SelectContent>
         </Select>
         <Select value={projectFilter} onValueChange={setProjectFilter}>
@@ -215,6 +206,7 @@ export const QuoterInbox = () => {
         </Select>
       </div>
 
+      {/* Items List */}
       {filteredItems.length > 0 ? (
         <div className="grid gap-4">
           {filteredItems.map((assignment) => {
@@ -228,6 +220,7 @@ export const QuoterInbox = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
+                        <Package className="w-4 h-4 text-gray-500" />
                         <h4 className="font-semibold text-gray-900">{equipment.nombre_equipo}</h4>
                         <Badge className={statusColors[assignment.estado as keyof typeof statusColors]}>
                           {statusLabels[assignment.estado as keyof typeof statusLabels]}
@@ -236,6 +229,9 @@ export const QuoterInbox = () => {
                       <p className="text-sm text-gray-600 mb-1">{project.nombre}</p>
                       <p className="text-sm text-gray-500">
                         Código: {equipment.codigo} | Cantidad: {item.cantidad} unidades
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Grupo: {equipment.grupo_generico}
                       </p>
                       {item.observaciones && (
                         <p className="text-sm text-gray-500 mt-1">
@@ -251,10 +247,10 @@ export const QuoterInbox = () => {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => setSelectedAssignment(assignment)}
+                        onClick={() => setShowNewQuotationForm(true)}
                       >
                         <Edit className="w-4 h-4 mr-1" />
-                        Cotizar
+                        {assignment.estado === 'cotizado' ? 'Recotizar' : 'Cotizar'}
                       </Button>
                     </div>
                   </div>
@@ -280,7 +276,7 @@ export const QuoterInbox = () => {
         </div>
       ) : (
         <div className="text-center py-12">
-          <CheckCircle2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {userAssignments.length === 0 ? 'No tienes asignaciones' : 'No hay ítems que coincidan'}
           </h3>

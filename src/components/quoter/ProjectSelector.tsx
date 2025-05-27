@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, FolderOpen, Calendar, User } from 'lucide-react';
 import { useProjects } from '@/hooks/useProjects';
-import { useProjectDetail } from '@/hooks/useProjectDetail';
+import { useItemAssignments } from '@/hooks/useItemAssignments';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ProjectSelectorProps {
   onProjectSelect: (project: any, item: any) => void;
@@ -17,22 +18,36 @@ export const ProjectSelector = ({ onProjectSelect }: ProjectSelectorProps) => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   
   const { projects, isLoading: loadingProjects } = useProjects();
-  const { project, isLoading: loadingItems } = useProjectDetail(selectedProjectId);
+  const { assignments, isLoading: loadingAssignments } = useItemAssignments();
+  const { user } = useAuth();
 
-  const filteredProjects = projects.filter(project =>
+  // Filtrar asignaciones del usuario actual
+  const userAssignments = assignments.filter(assignment => 
+    assignment.cotizador_id === user?.id
+  );
+
+  // Obtener proyectos únicos de las asignaciones del usuario
+  const userProjects = projects.filter(project => 
+    userAssignments.some(assignment => 
+      assignment.project_items?.proyecto_id === project.id
+    )
+  ).filter(project =>
     project.nombre.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Get project items from the project object
-  const projectItems = project?.project_items || [];
+  // Obtener ítems asignados para el proyecto seleccionado
+  const assignedItems = userAssignments
+    .filter(assignment => assignment.project_items?.proyecto_id === selectedProjectId)
+    .map(assignment => assignment.project_items)
+    .filter(Boolean);
 
-  if (loadingProjects) {
+  if (loadingProjects || loadingAssignments) {
     return (
       <Card>
         <CardContent className="p-6">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Cargando proyectos...</p>
+            <p className="mt-2 text-gray-600">Cargando proyectos asignados...</p>
           </div>
         </CardContent>
       </Card>
@@ -48,7 +63,7 @@ export const ProjectSelector = ({ onProjectSelect }: ProjectSelectorProps) => {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <FolderOpen className="w-5 h-5" />
-                <span>Seleccionar Proyecto</span>
+                <span>Proyectos con Ítems Asignados</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -64,42 +79,48 @@ export const ProjectSelector = ({ onProjectSelect }: ProjectSelectorProps) => {
                 </div>
 
                 <div className="grid gap-3 max-h-96 overflow-y-auto">
-                  {filteredProjects.map((project) => (
-                    <div
-                      key={project.id}
-                      className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => setSelectedProjectId(project.id)}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium text-gray-900">{project.nombre}</h4>
-                        <Badge variant={
-                          project.estado === 'completado' ? 'default' :
-                          project.estado === 'en_proceso' ? 'secondary' :
-                          'outline'
-                        }>
-                          {project.estado}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>{new Date(project.fecha_creacion).toLocaleDateString()}</span>
-                        </div>
-                        {project.responsable && (
-                          <div className="flex items-center space-x-1">
-                            <User className="w-4 h-4" />
-                            <span>{project.responsable.nombre}</span>
+                  {userProjects.map((project) => {
+                    const projectAssignments = userAssignments.filter(a => 
+                      a.project_items?.proyecto_id === project.id
+                    );
+                    const pendingCount = projectAssignments.filter(a => a.estado === 'pendiente').length;
+                    
+                    return (
+                      <div
+                        key={project.id}
+                        className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => setSelectedProjectId(project.id)}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-gray-900">{project.nombre}</h4>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="outline">{projectAssignments.length} ítems</Badge>
+                            {pendingCount > 0 && (
+                              <Badge variant="secondary">{pendingCount} pendientes</Badge>
+                            )}
                           </div>
-                        )}
+                        </div>
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="w-4 h-4" />
+                            <span>{new Date(project.fecha_creacion).toLocaleDateString()}</span>
+                          </div>
+                          {project.responsable && (
+                            <div className="flex items-center space-x-1">
+                              <User className="w-4 h-4" />
+                              <span>{project.responsable.nombre}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
-                {filteredProjects.length === 0 && (
+                {userProjects.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     <FolderOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No se encontraron proyectos</p>
+                    <p>No tienes ítems asignados en ningún proyecto</p>
                   </div>
                 )}
               </div>
@@ -112,7 +133,7 @@ export const ProjectSelector = ({ onProjectSelect }: ProjectSelectorProps) => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>Seleccionar Ítem</span>
+                <span>Ítems Asignados para Cotizar</span>
                 <Button
                   variant="outline"
                   onClick={() => setSelectedProjectId('')}
@@ -122,16 +143,11 @@ export const ProjectSelector = ({ onProjectSelect }: ProjectSelectorProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingItems ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Cargando ítems...</p>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {projectItems
-                    ?.filter(item => item.estado !== 'completado')
-                    ?.map((item) => (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {assignedItems.map((item) => {
+                  const assignment = userAssignments.find(a => a.item_id === item.id);
+                  
+                  return (
                     <div
                       key={item.id}
                       className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
@@ -150,11 +166,11 @@ export const ProjectSelector = ({ onProjectSelect }: ProjectSelectorProps) => {
                         <div className="flex items-center space-x-2">
                           <Badge variant="secondary">Cantidad: {item.cantidad}</Badge>
                           <Badge variant={
-                            item.estado === 'asignado' ? 'default' :
-                            item.estado === 'pendiente' ? 'outline' :
+                            assignment?.estado === 'pendiente' ? 'outline' :
+                            assignment?.estado === 'en_proceso' ? 'default' :
                             'secondary'
                           }>
-                            {item.estado}
+                            {assignment?.estado || 'pendiente'}
                           </Badge>
                         </div>
                       </div>
@@ -166,15 +182,15 @@ export const ProjectSelector = ({ onProjectSelect }: ProjectSelectorProps) => {
                         )}
                       </div>
                     </div>
-                  ))}
-                  
-                  {!projectItems?.length && (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No hay ítems disponibles para cotizar en este proyecto</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                  );
+                })}
+                
+                {assignedItems.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No hay ítems asignados para cotizar en este proyecto</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </>
