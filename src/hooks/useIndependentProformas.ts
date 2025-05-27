@@ -106,10 +106,16 @@ export const useIndependentProformas = (supplierEquipmentId?: string) => {
         throw error;
       }
 
+      console.log('Successfully deleted proforma:', proformaId);
       return proformaId;
     },
-    onSuccess: () => {
+    onSuccess: (deletedId) => {
+      console.log('Delete mutation success, invalidating queries');
+      // Invalidate all independent-proformas queries
       queryClient.invalidateQueries({ queryKey: ['independent-proformas'] });
+      // Also refetch the current query
+      queryClient.refetchQueries({ queryKey: ['independent-proformas', supplierEquipmentId] });
+      
       toast({
         title: "Proforma eliminada",
         description: "La proforma se eliminó correctamente",

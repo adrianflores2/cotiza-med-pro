@@ -20,6 +20,7 @@ import { SupplierEditDialog } from './SupplierEditDialog';
 import { EquipmentAccessoriesTab } from './EquipmentAccessoriesTab';
 import { IndependentProformasView } from './IndependentProformasView';
 import { EquipmentProformasDialog } from './EquipmentProformasDialog';
+import { EquipmentCatalogFilters, CatalogFilters } from './EquipmentCatalogFilters';
 import { useAuth } from '@/hooks/useAuth';
 
 export const SupplierPanel = () => {
@@ -29,12 +30,17 @@ export const SupplierPanel = () => {
   const [priceUpdateEquipment, setPriceUpdateEquipment] = useState<any>(null);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
   const [proformasDialogEquipment, setProformasDialogEquipment] = useState<{id: string, name: string} | null>(null);
+  const [catalogFilters, setCatalogFilters] = useState<CatalogFilters>({});
 
   const { userRole } = useAuth();
   const { suppliers, isLoading: loadingSuppliers } = useSuppliers();
-  const { equipments, isLoading: loadingEquipments } = useSupplierEquipments(selectedSupplier || undefined, searchTerm);
+  const { equipments, isLoading: loadingEquipments, getAvailableGroups } = useSupplierEquipments(
+    selectedSupplier || undefined, 
+    searchTerm, 
+    catalogFilters
+  );
   const { equipment: masterEquipment, isLoading: loadingMasterEquipment } = useMasterEquipment();
-  const { proformas: allProformas, isLoading: loadingAllProformas } = useIndependentProformas(); // Fetch all proformas
+  const { proformas: allProformas, isLoading: loadingAllProformas } = useIndependentProformas();
 
   console.log('SupplierPanel: suppliers:', suppliers?.length || 0);
   console.log('SupplierPanel: masterEquipment:', masterEquipment?.length || 0);
@@ -91,6 +97,9 @@ export const SupplierPanel = () => {
     }
   };
 
+  // Get available groups for filters
+  const availableGroups = getAvailableGroups();
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -122,6 +131,14 @@ export const SupplierPanel = () => {
         </TabsList>
 
         <TabsContent value="catalog" className="space-y-4">
+          {/* Filtros Avanzados */}
+          <EquipmentCatalogFilters
+            filters={catalogFilters}
+            onFiltersChange={setCatalogFilters}
+            availableGroups={availableGroups}
+            isLoading={loadingEquipments}
+          />
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -234,7 +251,7 @@ export const SupplierPanel = () => {
                     ) : equipments.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center py-4">
-                          No se encontraron equipos
+                          No se encontraron equipos con los filtros aplicados
                         </TableCell>
                       </TableRow>
                     ) : (

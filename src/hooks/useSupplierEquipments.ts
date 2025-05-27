@@ -1,16 +1,28 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) => {
+export interface EquipmentFilters {
+  grupoGenerico?: string;
+  procedencia?: string;
+  tipoProveedor?: string;
+  precioMin?: number;
+  precioMax?: number;
+  moneda?: string;
+}
+
+export const useSupplierEquipments = (
+  supplierId?: string, 
+  searchTerm?: string, 
+  filters?: EquipmentFilters
+) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const supplierEquipmentsQuery = useQuery({
-    queryKey: ['supplier-equipments', supplierId, searchTerm],
+    queryKey: ['supplier-equipments', supplierId, searchTerm, filters],
     queryFn: async () => {
-      console.log('useSupplierEquipments: Fetching equipment for supplier:', supplierId, 'search:', searchTerm);
+      console.log('useSupplierEquipments: Fetching equipment for supplier:', supplierId, 'search:', searchTerm, 'filters:', filters);
       
       let query = supabase
         .from('supplier_equipments')
@@ -23,7 +35,8 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
           ),
           suppliers (
             razon_social,
-            ruc
+            ruc,
+            tipo_proveedor
           )
         `)
         .eq('activo', true)
@@ -35,6 +48,33 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
 
       if (searchTerm) {
         query = query.or(`master_equipment.codigo.ilike.%${searchTerm}%,master_equipment.nombre_equipo.ilike.%${searchTerm}%,marca.ilike.%${searchTerm}%,modelo.ilike.%${searchTerm}%`);
+      }
+
+      // Apply filters
+      if (filters) {
+        if (filters.grupoGenerico) {
+          query = query.eq('master_equipment.grupo_generico', filters.grupoGenerico);
+        }
+
+        if (filters.procedencia) {
+          query = query.eq('procedencia', filters.procedencia);
+        }
+
+        if (filters.tipoProveedor) {
+          query = query.eq('suppliers.tipo_proveedor', filters.tipoProveedor);
+        }
+
+        if (filters.moneda) {
+          query = query.eq('moneda', filters.moneda);
+        }
+
+        if (filters.precioMin !== undefined) {
+          query = query.gte('precio_unitario', filters.precioMin);
+        }
+
+        if (filters.precioMax !== undefined) {
+          query = query.lte('precio_unitario', filters.precioMax);
+        }
       }
 
       const { data, error } = await query;
@@ -49,6 +89,12 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
     },
     enabled: !searchTerm || searchTerm.length >= 2, // Only search if term has 2+ characters
   });
+
+  // Get available groups for filtering
+  const getAvailableGroups = () => {
+    const groups = supplierEquipmentsQuery.data?.map(item => item.master_equipment?.grupo_generico).filter(Boolean) || [];
+    return [...new Set(groups)];
+  };
 
   const createSupplierEquipmentMutation = useMutation({
     mutationFn: async (equipmentData: {
@@ -231,6 +277,7 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
     equipments: supplierEquipmentsQuery.data || [],
     isLoading: supplierEquipmentsQuery.isLoading,
     error: supplierEquipmentsQuery.error,
+    getAvailableGroups,
     createSupplierEquipment: createSupplierEquipmentMutation.mutate,
     updatePrice: updatePriceMutation.mutateAsync, // Using mutateAsync for better error handling
     updateEquipment: updateEquipmentMutation.mutate,

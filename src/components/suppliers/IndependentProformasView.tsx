@@ -65,6 +65,7 @@ export const IndependentProformasView = ({ proformas, isLoading }: IndependentPr
   };
 
   const handleDeleteProforma = (proformaId: string) => {
+    console.log('IndependentProformasView: Deleting proforma:', proformaId);
     deleteProforma(proformaId);
   };
 
@@ -177,14 +178,19 @@ export const IndependentProformasView = ({ proformas, isLoading }: IndependentPr
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      {proforma.archivo_url && (
+                      {proforma.archivo_url && proforma.archivo_url.trim() !== '' && (
                         <Button
                           variant="outline"
                           size="sm"
                           asChild
-                          title="Ver archivo"
+                          title="Ver archivo de proforma"
                         >
-                          <a href={proforma.archivo_url} target="_blank" rel="noopener noreferrer">
+                          <a 
+                            href={proforma.archivo_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center"
+                          >
                             <ExternalLink className="h-4 w-4" />
                           </a>
                         </Button>
@@ -197,14 +203,14 @@ export const IndependentProformasView = ({ proformas, isLoading }: IndependentPr
                             disabled={isDeleting}
                             title="Eliminar proforma"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>¿Eliminar proforma?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Esta acción no se puede deshacer. La proforma será eliminada permanentemente.
+                              Esta acción no se puede deshacer. La proforma será eliminada permanentemente del sistema.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -213,7 +219,7 @@ export const IndependentProformasView = ({ proformas, isLoading }: IndependentPr
                               onClick={() => handleDeleteProforma(proforma.id)}
                               className="bg-red-600 hover:bg-red-700"
                             >
-                              Eliminar
+                              Confirmar eliminación
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
