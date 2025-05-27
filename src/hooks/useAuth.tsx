@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
@@ -30,6 +29,25 @@ const cleanupAuthState = () => {
   } catch (error) {
     console.warn('AuthProvider: Error cleaning up auth state:', error);
   }
+};
+
+// Función para determinar el rol principal basado en jerarquía
+const getPrimaryRole = (roles: UserRole[]): UserRole => {
+  console.log('AuthProvider: Determining primary role from:', roles);
+  
+  // Jerarquía de roles (de mayor a menor)
+  const roleHierarchy: UserRole[] = ['admin', 'coordinador', 'comercial', 'cotizador'];
+  
+  for (const hierarchyRole of roleHierarchy) {
+    if (roles.includes(hierarchyRole)) {
+      console.log('AuthProvider: Selected primary role:', hierarchyRole);
+      return hierarchyRole;
+    }
+  }
+  
+  // Por defecto, devolver coordinador si no se encuentra ningún rol
+  console.log('AuthProvider: No roles found, defaulting to coordinador');
+  return 'coordinador';
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -158,23 +176,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Obtener rol del usuario
-      const { data: roleData, error: roleError } = await supabase
+      // Obtener TODOS los roles del usuario
+      const { data: rolesData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .maybeSingle();
+        .eq('user_id', userId);
 
       if (roleError) {
-        console.error('AuthProvider: Error fetching user role:', roleError);
+        console.error('AuthProvider: Error fetching user roles:', roleError);
         setUserRole('coordinador');
         return;
       }
 
-      const role = roleData?.role || 'coordinador';
-      console.log('AuthProvider: User role set to:', role);
-      setUserRole(role);
+      console.log('AuthProvider: User roles fetched:', rolesData);
+
+      if (!rolesData || rolesData.length === 0) {
+        console.log('AuthProvider: No roles found, setting default role');
+        setUserRole('coordinador');
+        return;
+      }
+
+      // Extraer todos los roles y determinar el principal
+      const userRoles = rolesData.map(r => r.role);
+      const primaryRole = getPrimaryRole(userRoles);
+      
+      console.log('AuthProvider: All user roles:', userRoles);
+      console.log('AuthProvider: Primary role determined:', primaryRole);
+      setUserRole(primaryRole);
       
     } catch (error) {
       console.error('AuthProvider: Unexpected error fetching user role:', error);

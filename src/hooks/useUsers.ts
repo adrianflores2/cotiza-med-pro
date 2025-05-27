@@ -139,6 +139,42 @@ export const useUsers = () => {
     },
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      console.log('useUsers: Deleting user:', userId);
+      
+      // Primero eliminar todos los roles del usuario
+      const { error: rolesError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (rolesError) {
+        console.error('useUsers: Error deleting user roles:', rolesError);
+        throw rolesError;
+      }
+
+      // Luego eliminar el usuario
+      const { error: userError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+
+      if (userError) {
+        console.error('useUsers: Error deleting user:', userError);
+        throw userError;
+      }
+
+      return { success: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => {
+      console.error('useUsers: User deletion failed:', error);
+    },
+  });
+
   const assignRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: UserRole }) => {
       console.log('useUsers: Assigning role:', { userId, role });
@@ -188,9 +224,11 @@ export const useUsers = () => {
     isLoading: usersQuery.isLoading,
     error: usersQuery.error,
     createUser: createUserMutation.mutate,
+    deleteUser: deleteUserMutation.mutate,
     assignRole: assignRoleMutation.mutate,
     removeRole: removeRoleMutation.mutate,
     isCreating: createUserMutation.isPending,
+    isDeleting: deleteUserMutation.isPending,
     isAssigning: assignRoleMutation.isPending,
     isRemoving: removeRoleMutation.isPending,
   };

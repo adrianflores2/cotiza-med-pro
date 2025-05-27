@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useUsers } from "@/hooks/useUsers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +21,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { UserPlus, UserMinus, Users, Plus } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { UserPlus, UserMinus, Users, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole } from "@/types/database";
 
@@ -43,9 +55,11 @@ export const UserManagement = () => {
     users, 
     isLoading, 
     createUser, 
+    deleteUser,
     assignRole, 
     removeRole, 
-    isCreating, 
+    isCreating,
+    isDeleting,
     isAssigning, 
     isRemoving 
   } = useUsers();
@@ -114,6 +128,24 @@ export const UserManagement = () => {
         },
       }
     );
+  };
+
+  const handleDeleteUser = (userId: string, userName: string) => {
+    deleteUser(userId, {
+      onSuccess: () => {
+        toast({
+          title: "Usuario eliminado",
+          description: `El usuario ${userName} ha sido eliminado correctamente`,
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar el usuario",
+          variant: "destructive",
+        });
+      },
+    });
   };
 
   const handleCreateUser = () => {
@@ -341,27 +373,58 @@ export const UserManagement = () => {
                     Registrado: {new Date(user.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {user.roles.length > 0 ? (
-                    user.roles.map((role) => (
-                      <div key={role} className="flex items-center gap-1">
-                        <Badge className={roleColors[role]}>
-                          {roleLabels[role]}
-                        </Badge>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleRemoveRole(user.id, role)}
-                          disabled={isRemoving}
-                          className="h-6 w-6 p-0"
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {user.roles.length > 0 ? (
+                      user.roles.map((role) => (
+                        <div key={role} className="flex items-center gap-1">
+                          <Badge className={roleColors[role]}>
+                            {roleLabels[role]}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRemoveRole(user.id, role)}
+                            disabled={isRemoving}
+                            className="h-6 w-6 p-0"
+                          >
+                            <UserMinus className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <Badge variant="secondary">Sin roles</Badge>
+                    )}
+                  </div>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción no se puede deshacer. Esto eliminará permanentemente la cuenta de usuario de <strong>{user.nombre}</strong> y todos sus roles asociados.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeleteUser(user.id, user.nombre)}
+                          className="bg-red-600 hover:bg-red-700"
                         >
-                          <UserMinus className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))
-                  ) : (
-                    <Badge variant="secondary">Sin roles</Badge>
-                  )}
+                          Eliminar Usuario
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </CardContent>
