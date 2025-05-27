@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,8 @@ export const QuoterInbox = () => {
   const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-  const { assignments, isLoading } = useItemAssignments();
+  const [availableQuotations, setAvailableQuotations] = useState<any[]>([]);
+  const { assignments, isLoading, refetch } = useItemAssignments();
   const { user } = useAuth();
   const { deleteQuotation } = useQuotationManagement();
 
@@ -59,7 +61,10 @@ export const QuoterInbox = () => {
       <SimplifiedQuotationForm 
         preselectedProject={selectedAssignment.project}
         preselectedItem={selectedAssignment.item}
-        onBack={() => setSelectedAssignment(null)}
+        onBack={() => {
+          setSelectedAssignment(null);
+          refetch(); // Refresh data when returning from form
+        }}
       />
     );
   }
@@ -113,10 +118,10 @@ export const QuoterInbox = () => {
     });
   };
 
-  const handleViewQuotation = async (assignment: any) => {
+  const handleViewQuotations = async (assignment: any) => {
     const item = assignment.project_items;
     
-    // Fetch the quotation details with all related data
+    // Fetch ALL quotations for this item made by the current user
     try {
       const { data: quotations, error } = await supabase
         .from('quotations')
@@ -142,21 +147,28 @@ export const QuoterInbox = () => {
           )
         `)
         .eq('item_id', item.id)
-        .eq('cotizador_id', user?.id);
+        .eq('cotizador_id', user?.id)
+        .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching quotation:', error);
+        console.error('Error fetching quotations:', error);
         return;
       }
 
+      console.log('Found quotations for item:', quotations?.length || 0);
+
       if (quotations && quotations.length > 0) {
-        const quotation = {
-          ...quotations[0],
-          supplier: quotations[0].suppliers,
-          cotizador: quotations[0].users,
-          accessories: quotations[0].quotation_accessories
-        };
-        setSelectedQuotation(quotation);
+        // Format quotations with proper structure
+        const formattedQuotations = quotations.map(quotation => ({
+          ...quotation,
+          supplier: quotation.suppliers,
+          cotizador: quotation.users,
+          accessories: quotation.quotation_accessories
+        }));
+
+        setAvailableQuotations(formattedQuotations);
+        // Show the first quotation by default
+        setSelectedQuotation(formattedQuotations[0]);
         setIsDetailsDialogOpen(true);
       }
     } catch (error) {
@@ -170,13 +182,34 @@ export const QuoterInbox = () => {
     const assignment = userAssignments.find(a => {
       const item = a.project_items;
       return item && selectedQuotation && 
-        // Check if this item has a quotation from the current user
         item.id === selectedQuotation.item_id;
     });
     
     if (assignment) {
       handleQuoteItem(assignment);
     }
+  };
+
+  const handleDeleteQuotation = async (quotationId: string) => {
+    deleteQuotation(quotationId);
+    
+    // Update the available quotations list
+    const updatedQuotations = availableQuotations.filter(q => q.id !== quotationId);
+    setAvailableQuotations(updatedQuotations);
+    
+    if (updatedQuotations.length === 0) {
+      setIsDetailsDialogOpen(false);
+      setSelectedQuotation(null);
+    } else {
+      setSelectedQuotation(updatedQuotations[0]);
+    }
+    
+    // Refresh assignments to update status
+    refetch();
+  };
+
+  const handleQuotationSelection = (quotation: any) => {
+    setSelectedQuotation(quotation);
   };
 
   if (isLoading) {
@@ -329,7 +362,7 @@ export const QuoterInbox = () => {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleViewQuotation(assignment)}
+                          onClick={() => handleViewQuotations(assignment)}
                         >
                           <Eye className="w-4 h-4 mr-1" />
                           Ver
@@ -386,16 +419,20 @@ export const QuoterInbox = () => {
         </div>
       )}
 
-      {/* Quotation Details Dialog */}
+      {/* Quotation Details Dialog with multiple quotations support */}
       <QuotationDetailsDialog
         quotation={selectedQuotation}
         isOpen={isDetailsDialogOpen}
         onClose={() => {
           setIsDetailsDialogOpen(false);
           setSelectedQuotation(null);
+          setAvailableQuotations([]);
         }}
         showActions={true}
         onEdit={handleEditQuotation}
+        onDelete={handleDeleteQuotation}
+        availableQuotations={availableQuotations}
+        onQuotationSelect={handleQuotationSelection}
       />
     </div>
   );

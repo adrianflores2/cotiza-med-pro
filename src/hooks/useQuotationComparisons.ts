@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -227,5 +228,6 @@ export const useQuotationComparisons = (projectId?: string) => {
     error: itemsWithQuotationsQuery.error,
     selectQuotation: selectQuotationMutation.mutate,
     isSelecting: selectQuotationMutation.isPending,
+    refetch: itemsWithQuotationsQuery.refetch,
   };
 };

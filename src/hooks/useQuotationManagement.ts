@@ -11,7 +11,18 @@ export const useQuotationManagement = () => {
     mutationFn: async (quotationId: string) => {
       console.log('Deleting quotation:', quotationId);
 
-      // First delete accessories associated with this quotation
+      // First, remove any quotation comparisons that reference this quotation
+      const { error: comparisonError } = await supabase
+        .from('quotation_comparisons')
+        .delete()
+        .eq('cotizacion_seleccionada_id', quotationId);
+
+      if (comparisonError) {
+        console.error('Error deleting quotation comparisons:', comparisonError);
+        // Don't throw here as this might not exist
+      }
+
+      // Then delete accessories associated with this quotation
       const { error: accessoriesError } = await supabase
         .from('quotation_accessories')
         .delete()
@@ -22,7 +33,7 @@ export const useQuotationManagement = () => {
         throw new Error(`Error al eliminar accesorios: ${accessoriesError.message}`);
       }
 
-      // Then delete the quotation itself
+      // Finally delete the quotation itself
       const { error: quotationError } = await supabase
         .from('quotations')
         .delete()

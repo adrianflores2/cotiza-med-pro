@@ -30,6 +30,9 @@ interface QuotationViewDialogProps {
 export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationViewDialogProps) => {
   if (!quotation) return null;
 
+  console.log('QuotationViewDialog: Quotation data:', quotation);
+  console.log('QuotationViewDialog: Accessories:', quotation.accessories || quotation.quotation_accessories);
+
   const getStatusColor = (estado: string) => {
     switch (estado) {
       case 'vigente':
@@ -60,6 +63,9 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
     if (!price) return 'No definido';
     return `${currency} ${price.toLocaleString()}`;
   };
+
+  // Get accessories from quotation data
+  const accessories = quotation.accessories || quotation.quotation_accessories || [];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -227,7 +233,7 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
           </Card>
 
           {/* Accesorios */}
-          {quotation.accessories && quotation.accessories.length > 0 && (
+          {accessories && accessories.length > 0 && (
             <Card>
               <CardContent className="pt-4">
                 <h3 className="font-semibold mb-3">Accesorios Cotizados</h3>
@@ -243,7 +249,7 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {quotation.accessories.map((accessory: any, index: number) => (
+                      {accessories.map((accessory: any, index: number) => (
                         <TableRow key={index} className="text-sm">
                           <TableCell className="font-medium">{accessory.nombre}</TableCell>
                           <TableCell className="text-center">{accessory.cantidad}</TableCell>

@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -44,6 +51,9 @@ interface QuotationDetailsDialogProps {
   onClose: () => void;
   showActions?: boolean;
   onEdit?: () => void;
+  onDelete?: (quotationId: string) => void;
+  availableQuotations?: any[];
+  onQuotationSelect?: (quotation: any) => void;
 }
 
 export const QuotationDetailsDialog = ({ 
@@ -51,7 +61,10 @@ export const QuotationDetailsDialog = ({
   isOpen, 
   onClose, 
   showActions = false,
-  onEdit 
+  onEdit,
+  onDelete,
+  availableQuotations = [],
+  onQuotationSelect
 }: QuotationDetailsDialogProps) => {
   const [accessories, setAccessories] = useState(quotation?.accessories || []);
   const { deleteQuotation, isDeleting } = useQuotationManagement();
@@ -85,14 +98,21 @@ export const QuotationDetailsDialog = ({
   };
 
   const handleDelete = () => {
-    deleteQuotation(quotation.id);
-    onClose();
+    if (onDelete) {
+      onDelete(quotation.id);
+    } else {
+      deleteQuotation(quotation.id);
+      onClose();
+    }
   };
 
   const formatPrice = (price: number | null, currency: string = 'USD') => {
     if (!price) return 'No definido';
     return `${currency} ${price.toLocaleString()}`;
   };
+
+  // Get accessories from quotation data
+  const currentAccessories = quotation.accessories || quotation.quotation_accessories || [];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -146,6 +166,35 @@ export const QuotationDetailsDialog = ({
             </div>
           </div>
         </DialogHeader>
+
+        {/* Quotation selector if multiple quotations available */}
+        {availableQuotations.length > 1 && onQuotationSelect && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Seleccionar cotización ({availableQuotations.length} disponibles)
+            </label>
+            <Select 
+              value={quotation.id} 
+              onValueChange={(value) => {
+                const selectedQuotation = availableQuotations.find(q => q.id === value);
+                if (selectedQuotation) {
+                  onQuotationSelect(selectedQuotation);
+                }
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccionar cotización" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableQuotations.map((q, index) => (
+                  <SelectItem key={q.id} value={q.id}>
+                    {`${index + 1}. ${q.marca} ${q.modelo} - ${q.moneda} ${q.precio_unitario?.toLocaleString()}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="space-y-4">
           {/* Información General Compacta */}
@@ -298,7 +347,7 @@ export const QuotationDetailsDialog = ({
           </Card>
 
           {/* Accesorios */}
-          {accessories && accessories.length > 0 && (
+          {currentAccessories && currentAccessories.length > 0 && (
             <Card>
               <CardContent className="pt-4">
                 <h3 className="font-semibold mb-3">Accesorios Cotizados</h3>
@@ -314,7 +363,7 @@ export const QuotationDetailsDialog = ({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {accessories.map((accessory: any, index: number) => (
+                      {currentAccessories.map((accessory: any, index: number) => (
                         <TableRow key={index} className="text-sm">
                           <TableCell className="font-medium">{accessory.nombre}</TableCell>
                           <TableCell className="text-center">{accessory.cantidad}</TableCell>
