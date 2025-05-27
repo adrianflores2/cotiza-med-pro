@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
     proveedor_ruc: "",
     proveedor_pais: "",
     proveedor_contacto: "",
+    proveedor_apellido: "",
     proveedor_email: "",
     proveedor_telefono: "",
     marca: "",
@@ -138,7 +140,6 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
     const quotationData = {
       item_id: assignment.project_items.id,
       cotizador_id: user?.id || '',
-      proveedor_id: '', // Se debe crear el proveedor primero
       tipo_cotizacion: formData.tipo_cotizacion as 'nacional' | 'importado',
       marca: formData.marca,
       modelo: formData.modelo,
@@ -150,7 +151,16 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
       incoterm: formData.incoterm,
       observaciones: formData.observaciones,
       fecha_vencimiento: formData.fecha_vencimiento,
-      estado: asDraft ? 'vigente' as const : 'vigente' as const,
+      
+      // Supplier data
+      proveedor_razon_social: formData.proveedor_razon_social,
+      proveedor_ruc: formData.proveedor_ruc,
+      proveedor_pais: formData.proveedor_pais,
+      proveedor_contacto: formData.proveedor_contacto,
+      proveedor_apellido: formData.proveedor_apellido,
+      proveedor_email: formData.proveedor_email,
+      proveedor_telefono: formData.proveedor_telefono,
+      
       accessories: accessories.map(acc => ({
         nombre: acc.nombre,
         cantidad: acc.cantidad,
@@ -160,18 +170,10 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
       })).filter(acc => acc.nombre.trim() !== ''),
     };
 
-    console.log('Datos de cotización a enviar:', quotationData);
+    console.log('Submitting quotation data:', quotationData);
     
-    // TODO: Aquí necesitamos primero crear el proveedor y luego la cotización
-    // createQuotation(quotationData);
+    createQuotation(quotationData);
     
-    toast({
-      title: asDraft ? "Borrador guardado" : "Cotización enviada",
-      description: asDraft 
-        ? "La cotización se guardó como borrador" 
-        : "La cotización se envió correctamente",
-    });
-
     if (!asDraft) {
       onBack();
     }
@@ -267,12 +269,21 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="proveedor_contacto">Contacto</Label>
+                  <Label htmlFor="proveedor_contacto">Nombre Contacto</Label>
                   <Input
                     id="proveedor_contacto"
                     value={formData.proveedor_contacto}
                     onChange={(e) => setFormData({ ...formData, proveedor_contacto: e.target.value })}
                     placeholder="Nombre del contacto"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="proveedor_apellido">Apellido Contacto</Label>
+                  <Input
+                    id="proveedor_apellido"
+                    value={formData.proveedor_apellido}
+                    onChange={(e) => setFormData({ ...formData, proveedor_apellido: e.target.value })}
+                    placeholder="Apellido del contacto"
                   />
                 </div>
                 <div>
@@ -545,13 +556,17 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
             <Button 
               variant="outline" 
               onClick={() => handleSubmit(true)}
+              disabled={isCreating}
             >
               <Save className="w-4 h-4 mr-2" />
               Guardar borrador
             </Button>
-            <Button onClick={() => handleSubmit(false)}>
+            <Button 
+              onClick={() => handleSubmit(false)}
+              disabled={isCreating}
+            >
               <Send className="w-4 h-4 mr-2" />
-              Enviar cotización
+              {isCreating ? 'Enviando...' : 'Enviar cotización'}
             </Button>
           </div>
         </CardContent>

@@ -674,6 +674,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_or_get_supplier: {
+        Args: {
+          _razon_social: string
+          _ruc?: string
+          _pais?: string
+          _nombre_contacto?: string
+          _apellido_contacto?: string
+          _email_contacto?: string
+          _telefono_contacto?: string
+        }
+        Returns: string
+      }
       get_user_primary_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

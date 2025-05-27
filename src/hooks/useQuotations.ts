@@ -1,60 +1,110 @@
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface QuotationData {
+  item_id: string;
+  cotizador_id: string;
+  tipo_cotizacion: 'nacional' | 'importado';
+  marca: string;
+  modelo: string;
+  procedencia?: string;
+  precio_unitario: number;
+  moneda: string;
+  tiempo_entrega?: string;
+  condiciones?: string;
+  incoterm?: string;
+  observaciones?: string;
+  fecha_vencimiento?: string;
+  
+  // Supplier data
+  proveedor_razon_social: string;
+  proveedor_ruc?: string;
+  proveedor_pais?: string;
+  proveedor_contacto?: string;
+  proveedor_apellido?: string;
+  proveedor_email?: string;
+  proveedor_telefono?: string;
+  
+  // Accessories
+  accessories: Array<{
+    nombre: string;
+    cantidad: number;
+    precio_unitario?: number;
+    moneda: string;
+    incluido_en_proforma: boolean;
+  }>;
+}
 
 export const useQuotations = () => {
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const createQuotationMutation = useMutation({
-    mutationFn: async (quotationData: {
-      item_id: string;
-      cotizador_id: string;
-      proveedor_id: string;
-      tipo_cotizacion: 'nacional' | 'importado';
-      marca?: string;
-      modelo?: string;
-      procedencia?: string;
-      precio_unitario: number;
-      moneda: string;
-      tiempo_entrega?: string;
-      condiciones?: string;
-      incoterm?: string;
-      observaciones?: string;
-      fecha_vencimiento?: string;
-      estado?: 'vigente' | 'vencida' | 'seleccionada' | 'descartada';
-      accessories?: Array<{
-        nombre: string;
-        cantidad: number;
-        precio_unitario?: number;
-        incluido_en_proforma: boolean;
-      }>;
-    }) => {
+  const createQuotation = useMutation({
+    mutationFn: async (quotationData: QuotationData) => {
       console.log('Creating quotation with data:', quotationData);
       
-      const { accessories, ...quotationMainData } = quotationData;
-      
-      // Crear la cotización principal
+      // First, create or get the supplier using the database function
+      const { data: supplierId, error: supplierError } = await supabase
+        .rpc('create_or_get_supplier', {
+          _razon_social: quotationData.proveedor_razon_social,
+          _ruc: quotationData.proveedor_ruc || '',
+          _pais: quotationData.proveedor_pais,
+          _nombre_contacto: quotationData.proveedor_contacto,
+          _apellido_contacto: quotationData.proveedor_apellido,
+          _email_contacto: quotationData.proveedor_email,
+          _telefono_contacto: quotationData.proveedor_telefono,
+        });
+
+      if (supplierError) {
+        console.error('Error creating/getting supplier:', supplierError);
+        throw new Error(`Error al crear/obtener proveedor: ${supplierError.message}`);
+      }
+
+      console.log('Supplier ID:', supplierId);
+
+      // Create the quotation
+      const quotationInsert = {
+        item_id: quotationData.item_id,
+        cotizador_id: quotationData.cotizador_id,
+        proveedor_id: supplierId,
+        tipo_cotizacion: quotationData.tipo_cotizacion,
+        marca: quotationData.marca,
+        modelo: quotationData.modelo,
+        procedencia: quotationData.procedencia,
+        precio_unitario: quotationData.precio_unitario,
+        moneda: quotationData.moneda,
+        tiempo_entrega: quotationData.tiempo_entrega,
+        condiciones: quotationData.condiciones,
+        incoterm: quotationData.incoterm,
+        observaciones: quotationData.observaciones,
+        fecha_vencimiento: quotationData.fecha_vencimiento,
+        estado: 'vigente' as const,
+      };
+
       const { data: quotation, error: quotationError } = await supabase
         .from('quotations')
-        .insert({
-          ...quotationMainData,
-          estado: quotationMainData.estado || 'vigente',
-        })
+        .insert(quotationInsert)
         .select()
         .single();
 
       if (quotationError) {
         console.error('Error creating quotation:', quotationError);
-        throw quotationError;
+        throw new Error(`Error al crear cotización: ${quotationError.message}`);
       }
 
-      // Crear los accesorios si existen
-      if (accessories && accessories.length > 0) {
-        const accessoriesData = accessories.map(acc => ({
-          ...acc,
+      console.log('Quotation created:', quotation);
+
+      // Create accessories if any
+      if (quotationData.accessories && quotationData.accessories.length > 0) {
+        const accessoriesData = quotationData.accessories.map(acc => ({
           cotizacion_id: quotation.id,
+          nombre: acc.nombre,
+          cantidad: acc.cantidad,
+          precio_unitario: acc.precio_unitario,
+          moneda: acc.moneda,
+          incluido_en_proforma: acc.incluido_en_proforma,
         }));
 
         const { error: accessoriesError } = await supabase
@@ -63,32 +113,34 @@ export const useQuotations = () => {
 
         if (accessoriesError) {
           console.error('Error creating accessories:', accessoriesError);
-          throw accessoriesError;
+          // Don't throw here, just log the error as the main quotation was created
         }
       }
 
       return quotation;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['quotations'] });
-      queryClient.invalidateQueries({ queryKey: ['item-assignments'] });
       toast({
-        title: "Cotización guardada",
-        description: "La cotización se guardó correctamente",
+        title: "¡Cotización creada!",
+        description: "La cotización se ha guardado correctamente y está disponible para revisión.",
       });
+      
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['item-assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['quotations'] });
     },
-    onError: (error) => {
-      console.error('Error creating quotation:', error);
+    onError: (error: Error) => {
+      console.error('Quotation creation error:', error);
       toast({
-        title: "Error",
-        description: "No se pudo guardar la cotización",
+        title: "Error al crear cotización",
+        description: error.message,
         variant: "destructive",
       });
     },
   });
 
   return {
-    createQuotation: createQuotationMutation.mutate,
-    isCreating: createQuotationMutation.isPending,
+    createQuotation: createQuotation.mutate,
+    isCreating: createQuotation.isPending,
   };
 };
