@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, DollarSign, Package, FileText, Wrench } from 'lucide-react';
+import { Search, Plus, DollarSign, Package, FileText, Wrench, Edit } from 'lucide-react';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { useSupplierEquipments } from '@/hooks/useSupplierEquipments';
 import { useMasterEquipment } from '@/hooks/useMasterEquipment';
@@ -16,14 +17,18 @@ import { SupplierForm } from './SupplierForm';
 import { EquipmentForm } from './EquipmentForm';
 import { ProformaForm } from './ProformaForm';
 import { PriceUpdateDialog } from './PriceUpdateDialog';
+import { SupplierEditDialog } from './SupplierEditDialog';
 import { EquipmentAccessoriesTab } from './EquipmentAccessoriesTab';
+import { useAuth } from '@/hooks/useAuth';
 
 export const SupplierPanel = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState<string>('');
   const [priceUpdateEquipment, setPriceUpdateEquipment] = useState<any>(null);
+  const [editingSupplier, setEditingSupplier] = useState<any>(null);
 
+  const { userRole } = useAuth();
   const { suppliers, isLoading: loadingSuppliers } = useSuppliers();
   const { equipments, isLoading: loadingEquipments } = useSupplierEquipments(selectedSupplier || undefined, searchTerm);
   const { equipment: masterEquipment, isLoading: loadingMasterEquipment } = useMasterEquipment();
@@ -32,6 +37,9 @@ export const SupplierPanel = () => {
   console.log('SupplierPanel: suppliers:', suppliers?.length || 0);
   console.log('SupplierPanel: masterEquipment:', masterEquipment?.length || 0);
   console.log('SupplierPanel: loadingMasterEquipment:', loadingMasterEquipment);
+
+  // Check if user can edit suppliers (coordinador or admin)
+  const canEditSuppliers = userRole === 'coordinador' || userRole === 'admin';
 
   // Validate suppliers to prevent empty value SelectItems
   const validSuppliers = React.useMemo(() => {
@@ -169,6 +177,26 @@ export const SupplierPanel = () => {
                 )}
               </div>
 
+              {selectedEquipment && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default">Equipo Seleccionado</Badge>
+                      <span className="text-sm font-medium">
+                        {masterEquipment?.find(eq => eq.id === selectedEquipment)?.nombre_equipo || 'Equipo desconocido'}
+                      </span>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedEquipment('')}
+                    >
+                      Deseleccionar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="border rounded-lg">
                 <Table>
                   <TableHeader>
@@ -198,7 +226,10 @@ export const SupplierPanel = () => {
                       </TableRow>
                     ) : (
                       equipments.map((equipment) => (
-                        <TableRow key={equipment.id}>
+                        <TableRow 
+                          key={equipment.id}
+                          className={selectedEquipment === equipment.equipment_id ? 'bg-blue-50' : ''}
+                        >
                           <TableCell className="font-mono">
                             {equipment.master_equipment?.codigo}
                           </TableCell>
@@ -241,7 +272,8 @@ export const SupplierPanel = () => {
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => setSelectedEquipment(equipment.id)}
+                                onClick={() => setSelectedEquipment(equipment.equipment_id)}
+                                title="Ver proformas"
                               >
                                 <FileText className="h-4 w-4" />
                               </Button>
@@ -249,16 +281,15 @@ export const SupplierPanel = () => {
                                 variant="outline" 
                                 size="sm"
                                 onClick={() => setPriceUpdateEquipment(equipment)}
+                                title="Actualizar precio"
                               >
                                 <DollarSign className="h-4 w-4" />
                               </Button>
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => {
-                                  // Navigate to accessories for this equipment
-                                  setSelectedEquipment(equipment.equipment_id);
-                                }}
+                                onClick={() => setSelectedEquipment(equipment.equipment_id)}
+                                title="Ver accesorios"
                               >
                                 <Wrench className="h-4 w-4" />
                               </Button>
@@ -313,7 +344,19 @@ export const SupplierPanel = () => {
                     <Card key={supplier.id} className="cursor-pointer hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="space-y-2">
-                          <h3 className="font-semibold">{supplier.razon_social}</h3>
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold">{supplier.razon_social}</h3>
+                            {canEditSuppliers && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingSupplier(supplier)}
+                                title="Editar proveedor"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">RUC: {supplier.ruc}</p>
                           {supplier.pais && (
                             <p className="text-sm text-muted-foreground">País: {supplier.pais}</p>
@@ -448,6 +491,15 @@ export const SupplierPanel = () => {
           isOpen={!!priceUpdateEquipment}
           onClose={() => setPriceUpdateEquipment(null)}
           equipment={priceUpdateEquipment}
+        />
+      )}
+
+      {/* Supplier Edit Dialog */}
+      {editingSupplier && (
+        <SupplierEditDialog
+          isOpen={!!editingSupplier}
+          onClose={() => setEditingSupplier(null)}
+          supplier={editingSupplier}
         />
       )}
     </div>

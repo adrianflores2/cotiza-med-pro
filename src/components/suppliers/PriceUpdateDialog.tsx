@@ -44,10 +44,15 @@ export const PriceUpdateDialog = ({ isOpen, onClose, equipment }: PriceUpdateDia
   const moneda = watch('moneda');
 
   const onSubmit = async (data: PriceUpdateData) => {
+    console.log('PriceUpdateDialog: Submitting price update', { equipmentId: equipment.id, data });
+    
     updatePrice({
       id: equipment.id,
       precio_unitario: data.precio_unitario,
+      moneda: data.moneda,
+      notas_cambio: data.notas_cambio,
     });
+    
     reset();
     onClose();
   };

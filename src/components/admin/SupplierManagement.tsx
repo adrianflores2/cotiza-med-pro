@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Plus, Globe, MapPin } from 'lucide-react';
+import { Package, Plus, Globe, MapPin, Edit } from 'lucide-react';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { SupplierForm } from '@/components/suppliers/SupplierForm';
+import { SupplierEditDialog } from '@/components/suppliers/SupplierEditDialog';
 
 export const SupplierManagement = () => {
   const { suppliers, isLoading: loadingSuppliers } = useSuppliers();
+  const [editingSupplier, setEditingSupplier] = useState<any>(null);
 
   // Validate suppliers to prevent empty value SelectItems
   const validSuppliers = React.useMemo(() => {
@@ -47,13 +49,23 @@ export const SupplierManagement = () => {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">{supplier.razon_social}</h3>
-            <Badge variant={supplier.tipo_proveedor === 'internacional' ? 'default' : 'secondary'}>
-              {supplier.tipo_proveedor === 'internacional' ? (
-                <><Globe className="w-3 h-3 mr-1" />Internacional</>
-              ) : (
-                <><MapPin className="w-3 h-3 mr-1" />Nacional</>
-              )}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={supplier.tipo_proveedor === 'internacional' ? 'default' : 'secondary'}>
+                {supplier.tipo_proveedor === 'internacional' ? (
+                  <><Globe className="w-3 h-3 mr-1" />Internacional</>
+                ) : (
+                  <><MapPin className="w-3 h-3 mr-1" />Nacional</>
+                )}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditingSupplier(supplier)}
+                title="Editar proveedor"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <p className="text-sm text-muted-foreground">RUC: {supplier.ruc}</p>
           {supplier.pais && (
@@ -189,6 +201,15 @@ export const SupplierManagement = () => {
             </Card>
           </TabsContent>
         </Tabs>
+      )}
+
+      {/* Supplier Edit Dialog */}
+      {editingSupplier && (
+        <SupplierEditDialog
+          isOpen={!!editingSupplier}
+          onClose={() => setEditingSupplier(null)}
+          supplier={editingSupplier}
+        />
       )}
     </div>
   );
