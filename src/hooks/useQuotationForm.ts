@@ -58,8 +58,9 @@ export const useQuotationForm = (equipmentId?: string) => {
 
   const [accessories, setAccessories] = useState<Accessory[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
-  const [isNewSupplier, setIsNewSupplier] = useState(false);
+  const [isManualMode, setIsManualMode] = useState(false);
   const [useSmartSuggestions, setUseSmartSuggestions] = useState(true);
+  const [hasAppliedAutoSuggestion, setHasAppliedAutoSuggestion] = useState(false);
 
   const { suppliers } = useSuppliers();
   const { 
@@ -70,50 +71,83 @@ export const useQuotationForm = (equipmentId?: string) => {
   } = useEquipmentSuppliers(equipmentId);
 
   const { 
+    suggestions,
     bestSuggestion, 
     hasHistoricalData 
   } = useSmartSupplierSuggestions(equipmentId);
 
-  // Auto-apply best suggestion when component loads
+  // Auto-apply best suggestion when smart mode is enabled and we have data
   useEffect(() => {
-    if (useSmartSuggestions && bestSuggestion && hasHistoricalData && !selectedSupplierId) {
+    if (
+      useSmartSuggestions && 
+      bestSuggestion && 
+      hasHistoricalData && 
+      !hasAppliedAutoSuggestion &&
+      !selectedSupplierId
+    ) {
       console.log('Auto-applying best suggestion:', bestSuggestion);
       applySupplierSuggestion(bestSuggestion);
+      setHasAppliedAutoSuggestion(true);
     }
-  }, [bestSuggestion, hasHistoricalData, useSmartSuggestions, selectedSupplierId]);
+  }, [bestSuggestion, hasHistoricalData, useSmartSuggestions, hasAppliedAutoSuggestion, selectedSupplierId]);
+
+  // Reset auto-suggestion flag when smart suggestions are toggled
+  useEffect(() => {
+    if (!useSmartSuggestions) {
+      setHasAppliedAutoSuggestion(false);
+    }
+  }, [useSmartSuggestions]);
 
   const applySupplierSuggestion = (suggestion: any) => {
     console.log('Applying supplier suggestion:', suggestion);
     
     setSelectedSupplierId(suggestion.id);
-    setIsNewSupplier(false);
-    setUseSmartSuggestions(true);
+    setIsManualMode(false);
     
-    // Find the full supplier data
-    const fullSupplier = uniqueSuppliers.find(s => s.suppliers.id === suggestion.id);
-    
-    if (fullSupplier) {
-      setFormData(prev => ({
-        ...prev,
-        proveedor_razon_social: fullSupplier.suppliers.razon_social,
-        proveedor_ruc: fullSupplier.suppliers.ruc || '',
-        proveedor_pais: fullSupplier.suppliers.pais || '',
-        proveedor_contacto: fullSupplier.suppliers.nombre_contacto || '',
-        proveedor_apellido: fullSupplier.suppliers.apellido_contacto || '',
-        proveedor_email: fullSupplier.suppliers.email_contacto || '',
-        proveedor_telefono: fullSupplier.suppliers.telefono_contacto || '',
-        marca: suggestion.marca,
-        modelo: suggestion.modelo,
-        procedencia: suggestion.procedencia || '',
-        precio_unitario: suggestion.precio_unitario?.toString() || '',
-        moneda: suggestion.moneda || 'USD',
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      proveedor_razon_social: suggestion.razon_social,
+      proveedor_ruc: suggestion.ruc || '',
+      proveedor_pais: suggestion.pais || '',
+      proveedor_contacto: suggestion.nombre_contacto || '',
+      proveedor_apellido: suggestion.apellido_contacto || '',
+      proveedor_email: suggestion.email_contacto || '',
+      proveedor_telefono: suggestion.telefono_contacto || '',
+      marca: suggestion.marca,
+      modelo: suggestion.modelo,
+      procedencia: suggestion.procedencia || '',
+      precio_unitario: suggestion.precio_unitario?.toString() || '',
+      moneda: suggestion.moneda || 'USD',
+    }));
   };
 
-  // Auto-fill supplier information when supplier is selected
+  // Handle switching to manual mode for new supplier
+  const switchToManualMode = () => {
+    setIsManualMode(true);
+    setSelectedSupplierId('');
+    setUseSmartSuggestions(false);
+    
+    // Clear form data for manual entry
+    setFormData(prev => ({
+      ...prev,
+      proveedor_razon_social: '',
+      proveedor_ruc: '',
+      proveedor_pais: '',
+      proveedor_contacto: '',
+      proveedor_apellido: '',
+      proveedor_email: '',
+      proveedor_telefono: '',
+      marca: '',
+      modelo: '',
+      procedencia: '',
+      precio_unitario: '',
+      moneda: 'USD',
+    }));
+  };
+
+  // Auto-fill supplier information when supplier is selected (manual mode)
   useEffect(() => {
-    if (selectedSupplierId && !isNewSupplier && !useSmartSuggestions) {
+    if (selectedSupplierId && isManualMode && !useSmartSuggestions) {
       const selectedSupplier = uniqueSuppliers.find(s => s.suppliers.id === selectedSupplierId);
       if (selectedSupplier) {
         setFormData(prev => ({
@@ -128,11 +162,11 @@ export const useQuotationForm = (equipmentId?: string) => {
         }));
       }
     }
-  }, [selectedSupplierId, isNewSupplier, uniqueSuppliers, useSmartSuggestions]);
+  }, [selectedSupplierId, isManualMode, uniqueSuppliers, useSmartSuggestions]);
 
-  // Auto-fill equipment information when brand and model are selected
+  // Auto-fill equipment information when brand and model are selected (manual mode)
   useEffect(() => {
-    if (formData.marca && formData.modelo && !isNewSupplier && !useSmartSuggestions) {
+    if (formData.marca && formData.modelo && isManualMode && !useSmartSuggestions) {
       const supplierEquipment = getSupplierEquipment(formData.marca, formData.modelo);
       if (supplierEquipment) {
         setFormData(prev => ({
@@ -143,7 +177,7 @@ export const useQuotationForm = (equipmentId?: string) => {
         }));
       }
     }
-  }, [formData.marca, formData.modelo, isNewSupplier, getSupplierEquipment, useSmartSuggestions]);
+  }, [formData.marca, formData.modelo, isManualMode, getSupplierEquipment, useSmartSuggestions]);
 
   const handleAddAccessory = () => {
     const newAccessory: Accessory = {
@@ -190,8 +224,9 @@ export const useQuotationForm = (equipmentId?: string) => {
     });
     setAccessories([]);
     setSelectedSupplierId('');
-    setIsNewSupplier(false);
+    setIsManualMode(false);
     setUseSmartSuggestions(true);
+    setHasAppliedAutoSuggestion(false);
   };
 
   const validateForm = () => {
@@ -230,10 +265,11 @@ export const useQuotationForm = (equipmentId?: string) => {
     setAccessories,
     selectedSupplierId,
     setSelectedSupplierId,
-    isNewSupplier,
-    setIsNewSupplier,
+    isManualMode,
+    setIsManualMode: switchToManualMode,
     useSmartSuggestions,
     setUseSmartSuggestions,
+    suggestions,
     uniqueSuppliers,
     availableBrands,
     getModelsForBrand,
@@ -241,6 +277,7 @@ export const useQuotationForm = (equipmentId?: string) => {
     handleRemoveAccessory,
     handleAccessoryChange,
     applySupplierSuggestion,
+    switchToManualMode,
     clearForm,
     validateForm,
     hasHistoricalData,

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,9 @@ import {
   Building,
   Package,
   Zap,
-  Settings
+  Settings,
+  UserPlus,
+  Database
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -53,10 +56,10 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
     accessories,
     selectedSupplierId,
     setSelectedSupplierId,
-    isNewSupplier,
-    setIsNewSupplier,
+    isManualMode,
     useSmartSuggestions,
     setUseSmartSuggestions,
+    suggestions,
     uniqueSuppliers,
     availableBrands,
     getModelsForBrand,
@@ -64,6 +67,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
     handleRemoveAccessory,
     handleAccessoryChange,
     applySupplierSuggestion,
+    switchToManualMode,
     validateForm,
     hasHistoricalData,
   } = useQuotationForm(equipment?.id);
@@ -157,48 +161,100 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Smart Mode Toggle */}
-          <Card className="border-blue-200 bg-blue-50">
+          {/* Mode Selection */}
+          <Card className={hasHistoricalData ? "border-blue-200 bg-blue-50" : "border-orange-200 bg-orange-50"}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center space-x-2 text-blue-800">
-                  <Zap className="w-5 h-5" />
-                  <span>Modo Inteligente</span>
+                <CardTitle className={`flex items-center space-x-2 ${hasHistoricalData ? 'text-blue-800' : 'text-orange-800'}`}>
+                  {hasHistoricalData ? <Database className="w-5 h-5" /> : <Settings className="w-5 h-5" />}
+                  <span>{hasHistoricalData ? 'Modo Inteligente Disponible' : 'Modo Manual'}</span>
                   {hasHistoricalData && (
                     <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                      Datos disponibles
+                      {suggestions.length} proveedor{suggestions.length !== 1 ? 'es' : ''} encontrado{suggestions.length !== 1 ? 's' : ''}
                     </Badge>
                   )}
                 </CardTitle>
                 <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <Label htmlFor="smart-mode">Auto-completar</Label>
-                    <Switch
-                      id="smart-mode"
-                      checked={useSmartSuggestions}
-                      onCheckedChange={setUseSmartSuggestions}
-                    />
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Label htmlFor="advanced-mode">Modo avanzado</Label>
-                    <Switch
-                      id="advanced-mode"
-                      checked={showAdvancedMode}
-                      onCheckedChange={setShowAdvancedMode}
-                    />
-                  </div>
+                  {hasHistoricalData && (
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="smart-mode">Modo Inteligente</Label>
+                      <Switch
+                        id="smart-mode"
+                        checked={useSmartSuggestions}
+                        onCheckedChange={setUseSmartSuggestions}
+                      />
+                    </div>
+                  )}
+                  {hasHistoricalData && useSmartSuggestions && (
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="advanced-mode">Análisis Avanzado</Label>
+                      <Switch
+                        id="advanced-mode"
+                        checked={showAdvancedMode}
+                        onCheckedChange={setShowAdvancedMode}
+                      />
+                    </div>
+                  )}
+                  {hasHistoricalData && useSmartSuggestions && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={switchToManualMode}
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Nuevo Proveedor
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
           </Card>
 
           {/* Smart Suggestions */}
-          {useSmartSuggestions && (
+          {useSmartSuggestions && hasHistoricalData && (
             <SmartSupplierSuggestions
               equipmentId={equipment?.id}
               onSelectSuggestion={applySupplierSuggestion}
-              showComparison={showAdvancedMode}
+              showAdvancedMode={showAdvancedMode}
             />
+          )}
+
+          {/* Manual Mode Controls */}
+          {(!useSmartSuggestions || !hasHistoricalData || isManualMode) && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center space-x-2">
+                    <Settings className="w-5 h-5" />
+                    <span>Entrada Manual de Datos</span>
+                  </CardTitle>
+                  {uniqueSuppliers.length > 0 && (
+                    <div className="text-sm text-gray-600">
+                      {uniqueSuppliers.length} proveedor{uniqueSuppliers.length !== 1 ? 'es' : ''} registrado{uniqueSuppliers.length !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {uniqueSuppliers.length > 0 && (
+                  <div className="mb-4">
+                    <Label htmlFor="existing-supplier">Seleccionar Proveedor Existente (Opcional)</Label>
+                    <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un proveedor o ingresa uno nuevo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {uniqueSuppliers.map((supplier) => (
+                          <SelectItem key={supplier.suppliers.id} value={supplier.suppliers.id}>
+                            {supplier.suppliers.razon_social} ({supplier.suppliers.pais || 'Sin país'})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {/* Tipo de Cotización */}
@@ -220,54 +276,13 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
             </RadioGroup>
           </div>
 
-          {/* Manual Mode Controls */}
-          {(!useSmartSuggestions || !hasHistoricalData) && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center space-x-2">
-                    <Settings className="w-5 h-5" />
-                    <span>Modo de Entrada Manual</span>
-                  </CardTitle>
-                  <div className="flex items-center space-x-2">
-                    <Label htmlFor="new-supplier">Nuevo Proveedor</Label>
-                    <Switch
-                      id="new-supplier"
-                      checked={isNewSupplier}
-                      onCheckedChange={setIsNewSupplier}
-                    />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!isNewSupplier && uniqueSuppliers.length > 0 && (
-                  <div className="mb-4">
-                    <Label htmlFor="existing-supplier">Seleccionar Proveedor Existente</Label>
-                    <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un proveedor..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {uniqueSuppliers.map((supplier) => (
-                          <SelectItem key={supplier.suppliers.id} value={supplier.suppliers.id}>
-                            {supplier.suppliers.razon_social} ({supplier.suppliers.pais || 'Sin país'})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
           {/* Información del Proveedor */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2 text-lg">
                 <Building className="w-5 h-5" />
                 <span>Información del Proveedor</span>
-                {useSmartSuggestions && hasHistoricalData && (
+                {useSmartSuggestions && hasHistoricalData && !isManualMode && (
                   <Badge variant="secondary" className="bg-green-100 text-green-800">
                     Auto-completado
                   </Badge>
@@ -283,7 +298,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_razon_social}
                     onChange={(e) => setFormData({ ...formData, proveedor_razon_social: e.target.value })}
                     placeholder="Nombre de la empresa"
-                    disabled={useSmartSuggestions && hasHistoricalData && !isNewSupplier}
+                    disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                     required
                   />
                 </div>
@@ -294,11 +309,10 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_pais}
                     onChange={(e) => setFormData({ ...formData, proveedor_pais: e.target.value })}
                     placeholder="Ej: Perú"
-                    disabled={useSmartSuggestions && hasHistoricalData && !isNewSupplier}
+                    disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                   />
                 </div>
 
-                {/* ... keep existing code (rest of supplier fields) */}
                 <div>
                   <Label htmlFor="proveedor_ruc">
                     RUC {formData.proveedor_pais?.toLowerCase().includes('per') && '*'}
@@ -308,7 +322,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_ruc}
                     onChange={(e) => setFormData({ ...formData, proveedor_ruc: e.target.value })}
                     placeholder="20123456789"
-                    disabled={useSmartSuggestions && hasHistoricalData && !isNewSupplier}
+                    disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                     required={formData.proveedor_pais?.toLowerCase().includes('per')}
                   />
                 </div>
@@ -319,7 +333,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_contacto}
                     onChange={(e) => setFormData({ ...formData, proveedor_contacto: e.target.value })}
                     placeholder="Nombre del contacto"
-                    disabled={useSmartSuggestions && hasHistoricalData && !isNewSupplier}
+                    disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                   />
                 </div>
                 <div>
@@ -329,7 +343,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_apellido}
                     onChange={(e) => setFormData({ ...formData, proveedor_apellido: e.target.value })}
                     placeholder="Apellido del contacto"
-                    disabled={useSmartSuggestions && hasHistoricalData && !isNewSupplier}
+                    disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                   />
                 </div>
                 <div>
@@ -340,7 +354,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_email}
                     onChange={(e) => setFormData({ ...formData, proveedor_email: e.target.value })}
                     placeholder="contacto@empresa.com"
-                    disabled={useSmartSuggestions && hasHistoricalData && !isNewSupplier}
+                    disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                   />
                 </div>
                 <div>
@@ -350,7 +364,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.proveedor_telefono}
                     onChange={(e) => setFormData({ ...formData, proveedor_telefono: e.target.value })}
                     placeholder="+51 999 999 999"
-                    disabled={useSmartSuggestions && hasHistoricalData && !isNewSupplier}
+                    disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                   />
                 </div>
               </div>
@@ -363,7 +377,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
               <CardTitle className="flex items-center space-x-2 text-lg">
                 <Package className="w-5 h-5" />
                 <span>Información del Equipo</span>
-                {useSmartSuggestions && hasHistoricalData && (
+                {useSmartSuggestions && hasHistoricalData && !isManualMode && (
                   <Badge variant="secondary" className="bg-green-100 text-green-800">
                     Auto-completado
                   </Badge>
@@ -374,7 +388,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="marca">Marca *</Label>
-                  {(!useSmartSuggestions || !hasHistoricalData) && availableBrands.length > 0 ? (
+                  {(isManualMode || !useSmartSuggestions || !hasHistoricalData) && availableBrands.length > 0 ? (
                     <Select 
                       value={formData.marca} 
                       onValueChange={(value) => setFormData({ ...formData, marca: value, modelo: '' })}
@@ -396,14 +410,14 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                       value={formData.marca}
                       onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
                       placeholder="Ej: Philips"
-                      disabled={useSmartSuggestions && hasHistoricalData}
+                      disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                       required
                     />
                   )}
                 </div>
                 <div>
                   <Label htmlFor="modelo">Modelo *</Label>
-                  {(!useSmartSuggestions || !hasHistoricalData) && formData.marca && getModelsForBrand(formData.marca).length > 0 ? (
+                  {(isManualMode || !useSmartSuggestions || !hasHistoricalData) && formData.marca && getModelsForBrand(formData.marca).length > 0 ? (
                     <Select 
                       value={formData.modelo} 
                       onValueChange={(value) => setFormData({ ...formData, modelo: value })}
@@ -425,7 +439,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                       value={formData.modelo}
                       onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
                       placeholder="Ej: MX450"
-                      disabled={useSmartSuggestions && hasHistoricalData}
+                      disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                       required
                     />
                   )}
@@ -437,7 +451,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.procedencia}
                     onChange={(e) => setFormData({ ...formData, procedencia: e.target.value })}
                     placeholder="Ej: Alemania"
-                    disabled={useSmartSuggestions && hasHistoricalData}
+                    disabled={useSmartSuggestions && hasHistoricalData && !isManualMode}
                   />
                 </div>
               </div>
@@ -457,7 +471,7 @@ export const QuotationForm = ({ assignment, onBack }: QuotationFormProps) => {
                     value={formData.precio_unitario}
                     onChange={(e) => setFormData({ ...formData, precio_unitario: e.target.value })}
                     placeholder="0.00"
-                    className={useSmartSuggestions && hasHistoricalData ? 'bg-green-50' : ''}
+                    className={useSmartSuggestions && hasHistoricalData && !isManualMode ? 'bg-green-50' : ''}
                     required
                   />
                 </div>
