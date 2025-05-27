@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSuppliers } from './useSuppliers';
 import { useEquipmentSuppliers } from './useEquipmentSuppliers';
+import { useSmartSupplierSuggestions } from './useSmartSupplierSuggestions';
 
 export interface QuotationFormData {
   tipo_cotizacion: 'nacional' | 'importado';
@@ -58,6 +59,7 @@ export const useQuotationForm = (equipmentId?: string) => {
   const [accessories, setAccessories] = useState<Accessory[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [isNewSupplier, setIsNewSupplier] = useState(false);
+  const [useSmartSuggestions, setUseSmartSuggestions] = useState(true);
 
   const { suppliers } = useSuppliers();
   const { 
@@ -67,9 +69,51 @@ export const useQuotationForm = (equipmentId?: string) => {
     getSupplierEquipment 
   } = useEquipmentSuppliers(equipmentId);
 
+  const { 
+    bestSuggestion, 
+    hasHistoricalData 
+  } = useSmartSupplierSuggestions(equipmentId);
+
+  // Auto-apply best suggestion when component loads
+  useEffect(() => {
+    if (useSmartSuggestions && bestSuggestion && hasHistoricalData && !selectedSupplierId) {
+      console.log('Auto-applying best suggestion:', bestSuggestion);
+      applySupplierSuggestion(bestSuggestion);
+    }
+  }, [bestSuggestion, hasHistoricalData, useSmartSuggestions, selectedSupplierId]);
+
+  const applySupplierSuggestion = (suggestion: any) => {
+    console.log('Applying supplier suggestion:', suggestion);
+    
+    setSelectedSupplierId(suggestion.id);
+    setIsNewSupplier(false);
+    setUseSmartSuggestions(true);
+    
+    // Find the full supplier data
+    const fullSupplier = uniqueSuppliers.find(s => s.suppliers.id === suggestion.id);
+    
+    if (fullSupplier) {
+      setFormData(prev => ({
+        ...prev,
+        proveedor_razon_social: fullSupplier.suppliers.razon_social,
+        proveedor_ruc: fullSupplier.suppliers.ruc || '',
+        proveedor_pais: fullSupplier.suppliers.pais || '',
+        proveedor_contacto: fullSupplier.suppliers.nombre_contacto || '',
+        proveedor_apellido: fullSupplier.suppliers.apellido_contacto || '',
+        proveedor_email: fullSupplier.suppliers.email_contacto || '',
+        proveedor_telefono: fullSupplier.suppliers.telefono_contacto || '',
+        marca: suggestion.marca,
+        modelo: suggestion.modelo,
+        procedencia: suggestion.procedencia || '',
+        precio_unitario: suggestion.precio_unitario?.toString() || '',
+        moneda: suggestion.moneda || 'USD',
+      }));
+    }
+  };
+
   // Auto-fill supplier information when supplier is selected
   useEffect(() => {
-    if (selectedSupplierId && !isNewSupplier) {
+    if (selectedSupplierId && !isNewSupplier && !useSmartSuggestions) {
       const selectedSupplier = uniqueSuppliers.find(s => s.suppliers.id === selectedSupplierId);
       if (selectedSupplier) {
         setFormData(prev => ({
@@ -84,11 +128,11 @@ export const useQuotationForm = (equipmentId?: string) => {
         }));
       }
     }
-  }, [selectedSupplierId, isNewSupplier, uniqueSuppliers]);
+  }, [selectedSupplierId, isNewSupplier, uniqueSuppliers, useSmartSuggestions]);
 
   // Auto-fill equipment information when brand and model are selected
   useEffect(() => {
-    if (formData.marca && formData.modelo && !isNewSupplier) {
+    if (formData.marca && formData.modelo && !isNewSupplier && !useSmartSuggestions) {
       const supplierEquipment = getSupplierEquipment(formData.marca, formData.modelo);
       if (supplierEquipment) {
         setFormData(prev => ({
@@ -99,7 +143,7 @@ export const useQuotationForm = (equipmentId?: string) => {
         }));
       }
     }
-  }, [formData.marca, formData.modelo, isNewSupplier, getSupplierEquipment]);
+  }, [formData.marca, formData.modelo, isNewSupplier, getSupplierEquipment, useSmartSuggestions]);
 
   const handleAddAccessory = () => {
     const newAccessory: Accessory = {
@@ -147,6 +191,7 @@ export const useQuotationForm = (equipmentId?: string) => {
     setAccessories([]);
     setSelectedSupplierId('');
     setIsNewSupplier(false);
+    setUseSmartSuggestions(true);
   };
 
   const validateForm = () => {
@@ -187,13 +232,17 @@ export const useQuotationForm = (equipmentId?: string) => {
     setSelectedSupplierId,
     isNewSupplier,
     setIsNewSupplier,
+    useSmartSuggestions,
+    setUseSmartSuggestions,
     uniqueSuppliers,
     availableBrands,
     getModelsForBrand,
     handleAddAccessory,
     handleRemoveAccessory,
     handleAccessoryChange,
+    applySupplierSuggestion,
     clearForm,
     validateForm,
+    hasHistoricalData,
   };
 };
