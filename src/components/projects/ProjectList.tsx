@@ -1,9 +1,11 @@
+
 import { useState } from "react";
 import { useProjectsData } from "@/hooks/useProjectsData";
 import { ProjectDetailWithFilters } from "./ProjectDetailWithFilters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CircularProgress } from "@/components/ui/circular-progress";
 import { 
   Plus, 
   Calendar, 
@@ -43,6 +45,17 @@ const statusColors = {
 export const ProjectList = ({ onNewProject }: ProjectListProps) => {
   const { projects, isLoading, error } = useProjectsData();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  // Helper function to calculate project progress
+  const calculateProgress = (projectItems: any[] = []) => {
+    if (!projectItems || projectItems.length === 0) return 0;
+    
+    const completedItems = projectItems.filter(item => 
+      item.estado === 'cotizado' || item.estado === 'completado'
+    ).length;
+    
+    return Math.round((completedItems / projectItems.length) * 100);
+  };
 
   // Si hay un proyecto seleccionado, mostrar la vista detallada con filtros
   if (selectedProjectId) {
@@ -124,6 +137,7 @@ export const ProjectList = ({ onNewProject }: ProjectListProps) => {
           {projects.map((project) => {
             const StatusIcon = statusIcons[project.estado || 'pendiente'];
             const itemCount = project.project_items?.length || 0;
+            const progress = calculateProgress(project.project_items);
             
             return (
               <Card 
@@ -133,7 +147,7 @@ export const ProjectList = ({ onNewProject }: ProjectListProps) => {
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1">
                       <CardTitle className="text-xl">{project.nombre}</CardTitle>
                       {project.observaciones && (
                         <p className="text-sm text-gray-600">
@@ -141,10 +155,18 @@ export const ProjectList = ({ onNewProject }: ProjectListProps) => {
                         </p>
                       )}
                     </div>
-                    <Badge className={statusColors[project.estado || 'pendiente']}>
-                      <StatusIcon className="w-3 h-3 mr-1" />
-                      {statusLabels[project.estado || 'pendiente']}
-                    </Badge>
+                    <div className="flex items-center gap-3">
+                      <CircularProgress 
+                        progress={progress} 
+                        size={50} 
+                        strokeWidth={3}
+                        className="flex-shrink-0"
+                      />
+                      <Badge className={statusColors[project.estado || 'pendiente']}>
+                        <StatusIcon className="w-3 h-3 mr-1" />
+                        {statusLabels[project.estado || 'pendiente']}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -174,8 +196,8 @@ export const ProjectList = ({ onNewProject }: ProjectListProps) => {
                     <div className="flex items-center space-x-2">
                       <Package className="w-4 h-4 text-gray-400" />
                       <div>
-                        <p className="text-gray-500">Ítems</p>
-                        <p className="font-medium">{itemCount} equipos</p>
+                        <p className="text-gray-500">Progreso</p>
+                        <p className="font-medium">{progress}% completado</p>
                       </div>
                     </div>
                   </div>

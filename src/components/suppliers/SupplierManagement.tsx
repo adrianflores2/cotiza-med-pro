@@ -1,19 +1,22 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, Plus, Eye, EyeOff } from 'lucide-react';
+import { Package, Plus, Eye, EyeOff, Wrench } from 'lucide-react';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { useSupplierEquipments } from '@/hooks/useSupplierEquipments';
+import { useMasterEquipment } from '@/hooks/useMasterEquipment';
 import { SupplierForm } from './SupplierForm';
+import { EquipmentForm } from './EquipmentForm';
 
 export const SupplierManagement = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
+  const [showEquipmentDialog, setShowEquipmentDialog] = useState(false);
   const { suppliers, isLoading: loadingSuppliers } = useSuppliers();
   const { equipments, isLoading: loadingEquipments } = useSupplierEquipments(selectedSupplier || undefined);
+  const { equipment: masterEquipment } = useMasterEquipment();
 
   // Validate suppliers to prevent empty value SelectItems
   const validSuppliers = React.useMemo(() => {
@@ -55,6 +58,10 @@ export const SupplierManagement = () => {
     } else {
       setSelectedSupplier(supplierId); // Expand selected supplier
     }
+  };
+
+  const handleEquipmentAdded = () => {
+    setShowEquipmentDialog(false);
   };
 
   return (
@@ -104,13 +111,34 @@ export const SupplierManagement = () => {
                     <div className="space-y-2 flex-1">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-lg">{supplier.razon_social}</h3>
-                        <Button variant="ghost" size="sm">
-                          {selectedSupplier === supplier.id ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
+                        <div className="flex items-center gap-2">
+                          {selectedSupplier === supplier.id && (
+                            <Dialog open={showEquipmentDialog} onOpenChange={setShowEquipmentDialog}>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
+                                  <Wrench className="h-4 w-4 mr-2" />
+                                  Agregar Equipo
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl">
+                                <DialogHeader>
+                                  <DialogTitle>Agregar Equipo a {supplier.razon_social}</DialogTitle>
+                                </DialogHeader>
+                                <EquipmentForm 
+                                  supplierId={supplier.id}
+                                  masterEquipment={masterEquipment}
+                                />
+                              </DialogContent>
+                            </Dialog>
                           )}
-                        </Button>
+                          <Button variant="ghost" size="sm">
+                            {selectedSupplier === supplier.id ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                         <p>RUC: {supplier.ruc}</p>
