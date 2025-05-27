@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,8 @@ import {
   Edit,
   Calendar,
   Plus,
-  Package
+  Package,
+  Trash2
 } from "lucide-react";
 import {
   Select,
@@ -24,6 +24,9 @@ import {
 import { useItemAssignments } from "@/hooks/useItemAssignments";
 import { useAuth } from "@/hooks/useAuth";
 import { SimplifiedQuotationForm } from "./SimplifiedQuotationForm";
+import { QuotationDetailsDialog } from "../quotations/QuotationDetailsDialog";
+import { useQuotationManagement } from "@/hooks/useQuotationManagement";
+import { supabase } from "@/integrations/supabase/client";
 
 const statusColors = {
   "pendiente": "bg-orange-100 text-orange-800",
@@ -42,8 +45,11 @@ export const QuoterInbox = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
+  const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const { assignments, isLoading } = useItemAssignments();
   const { user } = useAuth();
+  const { deleteQuotation } = useQuotationManagement();
 
   console.log('QuoterInbox: User:', user?.email, 'Total assignments:', assignments.length);
 
@@ -105,6 +111,72 @@ export const QuoterInbox = () => {
       item: item,
       assignment: assignment
     });
+  };
+
+  const handleViewQuotation = async (assignment: any) => {
+    const item = assignment.project_items;
+    
+    // Fetch the quotation details with all related data
+    try {
+      const { data: quotations, error } = await supabase
+        .from('quotations')
+        .select(`
+          *,
+          suppliers!inner (
+            razon_social,
+            ruc,
+            pais,
+            tipo_proveedor
+          ),
+          users!quotations_cotizador_id_fkey (
+            nombre,
+            email
+          ),
+          quotation_accessories (
+            nombre,
+            cantidad,
+            precio_unitario,
+            moneda,
+            incluido_en_proforma,
+            observaciones
+          )
+        `)
+        .eq('item_id', item.id)
+        .eq('cotizador_id', user?.id);
+
+      if (error) {
+        console.error('Error fetching quotation:', error);
+        return;
+      }
+
+      if (quotations && quotations.length > 0) {
+        const quotation = {
+          ...quotations[0],
+          supplier: quotations[0].suppliers,
+          cotizador: quotations[0].users,
+          accessories: quotations[0].quotation_accessories
+        };
+        setSelectedQuotation(quotation);
+        setIsDetailsDialogOpen(true);
+      }
+    } catch (error) {
+      console.error('Error fetching quotation details:', error);
+    }
+  };
+
+  const handleEditQuotation = () => {
+    setIsDetailsDialogOpen(false);
+    // Find the assignment for this quotation and set it for editing
+    const assignment = userAssignments.find(a => {
+      const item = a.project_items;
+      return item && selectedQuotation && 
+        // Check if this item has a quotation from the current user
+        item.id === selectedQuotation.item_id;
+    });
+    
+    if (assignment) {
+      handleQuoteItem(assignment);
+    }
   };
 
   if (isLoading) {
@@ -253,10 +325,16 @@ export const QuoterInbox = () => {
                       )}
                     </div>
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">
-                        <Eye className="w-4 h-4 mr-1" />
-                        Ver
-                      </Button>
+                      {assignment.estado === 'cotizado' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewQuotation(assignment)}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Ver
+                        </Button>
+                      )}
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -307,6 +385,18 @@ export const QuoterInbox = () => {
           )}
         </div>
       )}
+
+      {/* Quotation Details Dialog */}
+      <QuotationDetailsDialog
+        quotation={selectedQuotation}
+        isOpen={isDetailsDialogOpen}
+        onClose={() => {
+          setIsDetailsDialogOpen(false);
+          setSelectedQuotation(null);
+        }}
+        showActions={true}
+        onEdit={handleEditQuotation}
+      />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQuotationComparisons } from "@/hooks/useQuotationComparisons";
 import { useAuth } from "@/hooks/useAuth";
-import { QuotationViewDialog } from "./QuotationViewDialog";
+import { QuotationDetailsDialog } from "./QuotationDetailsDialog";
 import { useProjects } from "@/hooks/useProjects";
 
 interface QuotationComparisonProps {
@@ -48,6 +48,13 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
     selectQuotation,
     isSelecting
   } = useQuotationComparisons(selectedProjectId !== "all" ? selectedProjectId : undefined);
+
+  // Update selectedProjectId when projectId prop changes
+  useEffect(() => {
+    if (projectId && projectId !== selectedProjectId) {
+      setSelectedProjectId(projectId);
+    }
+  }, [projectId]);
 
   const filteredItems = itemsWithQuotations.filter(item =>
     item.equipment.nombre_equipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -362,13 +369,14 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
         </div>
       )}
 
-      <QuotationViewDialog
+      <QuotationDetailsDialog
         quotation={selectedQuotation}
         isOpen={isViewDialogOpen}
         onClose={() => {
           setIsViewDialogOpen(false);
           setSelectedQuotation(null);
         }}
+        showActions={false}
       />
     </div>
   );

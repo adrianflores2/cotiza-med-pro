@@ -2,6 +2,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useStandardizedAccessories } from "./useStandardizedAccessories";
 
 interface QuotationData {
   item_id: string;
@@ -34,12 +35,15 @@ interface QuotationData {
     precio_unitario?: number;
     moneda: string;
     incluido_en_proforma: boolean;
+    descripcion?: string;
+    obligatorio?: boolean;
   }>;
 }
 
 export const useQuotations = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { createOrGetStandardizedAccessory } = useStandardizedAccessories();
 
   const createQuotation = useMutation({
     mutationFn: async (quotationData: QuotationData) => {
@@ -175,8 +179,32 @@ export const useQuotations = () => {
 
       console.log('Quotation created:', quotation);
 
-      // Create accessories if any
+      // Process accessories if any
       if (quotationData.accessories && quotationData.accessories.length > 0) {
+        console.log('Processing accessories:', quotationData.accessories.length);
+        
+        // First, standardize each accessory in the equipment catalog
+        for (const acc of quotationData.accessories) {
+          try {
+            await new Promise((resolve, reject) => {
+              createOrGetStandardizedAccessory({
+                equipment_id: itemData.equipment_id,
+                nombre: acc.nombre,
+                descripcion: acc.descripcion,
+                precio_referencial: acc.precio_unitario,
+                moneda: acc.moneda,
+                obligatorio: acc.obligatorio || false,
+              });
+              // Note: We don't wait for the response here since it's handled by the mutation
+              resolve(null);
+            });
+          } catch (error) {
+            console.error('Error standardizing accessory:', acc.nombre, error);
+            // Continue with other accessories even if one fails
+          }
+        }
+
+        // Then create quotation accessories
         const accessoriesData = quotationData.accessories.map(acc => ({
           cotizacion_id: quotation.id,
           nombre: acc.nombre,
@@ -184,6 +212,7 @@ export const useQuotations = () => {
           precio_unitario: acc.precio_unitario,
           moneda: acc.moneda,
           incluido_en_proforma: acc.incluido_en_proforma,
+          observaciones: acc.descripcion,
         }));
 
         const { error: accessoriesError } = await supabase
@@ -201,13 +230,14 @@ export const useQuotations = () => {
     onSuccess: () => {
       toast({
         title: "¡Cotización creada!",
-        description: "La cotización se ha guardado correctamente y el equipo se agregó al catálogo del proveedor.",
+        description: "La cotización se ha guardado correctamente y los accesorios se agregaron al catálogo.",
       });
       
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['item-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['quotations'] });
       queryClient.invalidateQueries({ queryKey: ['supplier-equipments'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment-accessories'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
     },
     onError: (error: Error) => {
