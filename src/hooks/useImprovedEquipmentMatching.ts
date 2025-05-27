@@ -240,6 +240,7 @@ export const useImprovedEquipmentMatching = () => {
       return data;
     },
     onSuccess: () => {
+      // Invalidate queries instead of reloading the page
       queryClient.invalidateQueries({ queryKey: ['master-equipment'] });
     },
   });

@@ -20,6 +20,7 @@ export const useEquipmentMatching = () => {
       nombre_equipo: string;
       grupo_generico: string;
       cotizador_predeterminado_id?: string;
+      observaciones_inconsistencias?: string;
     }) => {
       const { data, error } = await supabase
         .from('master_equipment')
@@ -31,6 +32,7 @@ export const useEquipmentMatching = () => {
       return data;
     },
     onSuccess: () => {
+      // Invalidate queries instead of reloading the page
       queryClient.invalidateQueries({ queryKey: ['master-equipment'] });
     },
   });
@@ -103,6 +105,7 @@ export const useEquipmentMatching = () => {
     }
 
     console.log('Basic equipment created successfully:', data);
+    // Invalidate queries instead of reloading the page
     queryClient.invalidateQueries({ queryKey: ['master-equipment'] });
     return data;
   };

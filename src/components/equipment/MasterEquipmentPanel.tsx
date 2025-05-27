@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ReviewEquipmentPanel } from './ReviewEquipmentPanel';
 import type { UserRole } from '@/types/database';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface MasterEquipmentPanelProps {
   userRole: UserRole;
@@ -31,6 +33,7 @@ interface EquipmentFormData {
 export const MasterEquipmentPanel = ({ userRole }: MasterEquipmentPanelProps) => {
   const { equipment, isLoading, error } = useMasterEquipment();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<any>(null);
@@ -45,6 +48,77 @@ export const MasterEquipmentPanel = ({ userRole }: MasterEquipmentPanelProps) =>
   const [newAlternativeCode, setNewAlternativeCode] = useState('');
 
   const canEdit = userRole === 'coordinador' || userRole === 'admin';
+
+  // Mutation for creating/updating equipment
+  const equipmentMutation = useMutation({
+    mutationFn: async (data: { isEdit: boolean; equipmentData: any; equipmentId?: string }) => {
+      const { isEdit, equipmentData, equipmentId } = data;
+      
+      if (isEdit && equipmentId) {
+        const { error } = await supabase
+          .from('master_equipment')
+          .update(equipmentData)
+          .eq('id', equipmentId);
+        if (error) throw error;
+        return { isEdit: true };
+      } else {
+        const { error } = await supabase
+          .from('master_equipment')
+          .insert([equipmentData]);
+        if (error) throw error;
+        return { isEdit: false };
+      }
+    },
+    onSuccess: (result) => {
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['master-equipment'] });
+      
+      toast({
+        title: "Éxito",
+        description: result.isEdit ? "Equipo actualizado correctamente" : "Equipo creado correctamente"
+      });
+      
+      setIsDialogOpen(false);
+      setEditingEquipment(null);
+      resetForm();
+    },
+    onError: (error: any) => {
+      console.error('Error saving equipment:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Error al guardar el equipo",
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Mutation for deleting equipment
+  const deleteMutation = useMutation({
+    mutationFn: async (equipmentId: string) => {
+      const { error } = await supabase
+        .from('master_equipment')
+        .delete()
+        .eq('id', equipmentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['master-equipment'] });
+      
+      toast({
+        title: "Éxito",
+        description: "Equipo eliminado correctamente"
+      });
+    },
+    onError: (error: any) => {
+      console.error('Error deleting equipment:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Error al eliminar el equipo",
+        variant: "destructive"
+      });
+    },
+  });
 
   // Count equipment needing review
   const equipmentNeedingReview = equipment.filter(eq => 
@@ -76,51 +150,17 @@ export const MasterEquipmentPanel = ({ userRole }: MasterEquipmentPanelProps) =>
       return;
     }
 
-    try {
-      const dataToSubmit = {
-        ...formData,
-        nombres_alternativos: formData.nombres_alternativos.length > 0 ? formData.nombres_alternativos : null,
-        codigos_alternativos: formData.codigos_alternativos.length > 0 ? formData.codigos_alternativos : null
-      };
+    const dataToSubmit = {
+      ...formData,
+      nombres_alternativos: formData.nombres_alternativos.length > 0 ? formData.nombres_alternativos : null,
+      codigos_alternativos: formData.codigos_alternativos.length > 0 ? formData.codigos_alternativos : null
+    };
 
-      if (editingEquipment) {
-        const { error } = await supabase
-          .from('master_equipment')
-          .update(dataToSubmit)
-          .eq('id', editingEquipment.id);
-
-        if (error) throw error;
-
-        toast({
-          title: "Éxito",
-          description: "Equipo actualizado correctamente"
-        });
-      } else {
-        const { error } = await supabase
-          .from('master_equipment')
-          .insert([dataToSubmit]);
-
-        if (error) throw error;
-
-        toast({
-          title: "Éxito",
-          description: "Equipo creado correctamente"
-        });
-      }
-
-      setIsDialogOpen(false);
-      setEditingEquipment(null);
-      resetForm();
-      
-      window.location.reload();
-    } catch (error: any) {
-      console.error('Error saving equipment:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Error al guardar el equipo",
-        variant: "destructive"
-      });
-    }
+    equipmentMutation.mutate({
+      isEdit: !!editingEquipment,
+      equipmentData: dataToSubmit,
+      equipmentId: editingEquipment?.id
+    });
   };
 
   const resetForm = () => {
@@ -205,28 +245,7 @@ export const MasterEquipmentPanel = ({ userRole }: MasterEquipmentPanelProps) =>
       return;
     }
 
-    try {
-      const { error } = await supabase
-        .from('master_equipment')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Éxito",
-        description: "Equipo eliminado correctamente"
-      });
-
-      window.location.reload();
-    } catch (error: any) {
-      console.error('Error deleting equipment:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Error al eliminar el equipo",
-        variant: "destructive"
-      });
-    }
+    deleteMutation.mutate(id);
   };
 
   const openCreateDialog = () => {
@@ -401,8 +420,11 @@ export const MasterEquipmentPanel = ({ userRole }: MasterEquipmentPanelProps) =>
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit">
-                    {editingEquipment ? 'Actualizar' : 'Crear'}
+                  <Button 
+                    type="submit"
+                    disabled={equipmentMutation.isPending}
+                  >
+                    {equipmentMutation.isPending ? 'Guardando...' : (editingEquipment ? 'Actualizar' : 'Crear')}
                   </Button>
                 </div>
               </form>
@@ -525,6 +547,7 @@ export const MasterEquipmentPanel = ({ userRole }: MasterEquipmentPanelProps) =>
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEdit(item)}
+                                disabled={equipmentMutation.isPending || deleteMutation.isPending}
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -533,6 +556,7 @@ export const MasterEquipmentPanel = ({ userRole }: MasterEquipmentPanelProps) =>
                                 size="sm"
                                 onClick={() => handleDelete(item.id)}
                                 className="text-red-600 hover:text-red-700"
+                                disabled={equipmentMutation.isPending || deleteMutation.isPending}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
