@@ -247,7 +247,7 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                                     {quotation.precio_unitario === bestPrice && (
                                       <TrendingDown className="w-4 h-4 text-green-600" />
                                     )}
-                                    {quotation.precio_unitario === worstPrice && quotations.length > 1 && (
+                                    {quotation.precio_unitario === worstPrice && item.quotations.length > 1 && (
                                       <TrendingUp className="w-4 h-4 text-red-600" />
                                     )}
                                   </div>
