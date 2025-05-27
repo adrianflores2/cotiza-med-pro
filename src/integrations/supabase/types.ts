@@ -56,6 +56,53 @@ export type Database = {
           },
         ]
       }
+      equipment_accessories: {
+        Row: {
+          activo: boolean | null
+          created_at: string | null
+          descripcion: string | null
+          equipment_id: string
+          id: string
+          moneda: string | null
+          nombre: string
+          obligatorio: boolean | null
+          precio_referencial: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          equipment_id: string
+          id?: string
+          moneda?: string | null
+          nombre: string
+          obligatorio?: boolean | null
+          precio_referencial?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          created_at?: string | null
+          descripcion?: string | null
+          equipment_id?: string
+          id?: string
+          moneda?: string | null
+          nombre?: string
+          obligatorio?: boolean | null
+          precio_referencial?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_accessories_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "master_equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_change_logs: {
         Row: {
           equipment_id: string | null
@@ -556,6 +603,60 @@ export type Database = {
           },
         ]
       }
+      supplier_equipment_accessories: {
+        Row: {
+          accessory_id: string
+          created_at: string | null
+          disponible: boolean | null
+          id: string
+          moneda: string | null
+          observaciones: string | null
+          precio_unitario: number | null
+          supplier_equipment_id: string
+          tiempo_entrega: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accessory_id: string
+          created_at?: string | null
+          disponible?: boolean | null
+          id?: string
+          moneda?: string | null
+          observaciones?: string | null
+          precio_unitario?: number | null
+          supplier_equipment_id: string
+          tiempo_entrega?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accessory_id?: string
+          created_at?: string | null
+          disponible?: boolean | null
+          id?: string
+          moneda?: string | null
+          observaciones?: string | null
+          precio_unitario?: number | null
+          supplier_equipment_id?: string
+          tiempo_entrega?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_equipment_accessories_accessory_id_fkey"
+            columns: ["accessory_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_accessories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_equipment_accessories_supplier_equipment_id_fkey"
+            columns: ["supplier_equipment_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_equipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_equipments: {
         Row: {
           activo: boolean | null
@@ -577,6 +678,7 @@ export type Database = {
           proveedor_id: string
           tipo_cambio: number | null
           updated_at: string | null
+          usuario_ultima_modificacion: string | null
           validado_por_coordinador: boolean | null
         }
         Insert: {
@@ -599,6 +701,7 @@ export type Database = {
           proveedor_id: string
           tipo_cambio?: number | null
           updated_at?: string | null
+          usuario_ultima_modificacion?: string | null
           validado_por_coordinador?: boolean | null
         }
         Update: {
@@ -621,6 +724,7 @@ export type Database = {
           proveedor_id?: string
           tipo_cambio?: number | null
           updated_at?: string | null
+          usuario_ultima_modificacion?: string | null
           validado_por_coordinador?: boolean | null
         }
         Relationships: [

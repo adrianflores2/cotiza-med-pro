@@ -113,7 +113,34 @@ export interface SupplierEquipment {
   fecha_ultima_actualizacion?: string;
   notas_cambio?: string;
   validado_por_coordinador?: boolean;
+  usuario_ultima_modificacion?: string;
   activo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EquipmentAccessory {
+  id: string;
+  equipment_id: string;
+  nombre: string;
+  descripcion?: string;
+  precio_referencial?: number;
+  moneda?: string;
+  obligatorio: boolean;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplierEquipmentAccessory {
+  id: string;
+  supplier_equipment_id: string;
+  accessory_id: string;
+  precio_unitario?: number;
+  moneda?: string;
+  disponible: boolean;
+  tiempo_entrega?: string;
+  observaciones?: string;
   created_at: string;
   updated_at: string;
 }

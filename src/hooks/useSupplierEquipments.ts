@@ -65,9 +65,15 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
     }) => {
       console.log('Creating supplier equipment:', equipmentData);
       
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { data, error } = await supabase
         .from('supplier_equipments')
-        .insert(equipmentData)
+        .insert({
+          ...equipmentData,
+          usuario_ultima_modificacion: user?.id
+        })
         .select()
         .single();
 
@@ -98,26 +104,44 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
   const updatePriceMutation = useMutation({
     mutationFn: async ({ 
       id, 
-      precio_unitario 
+      precio_unitario,
+      moneda,
+      notas_cambio 
     }: { 
       id: string; 
       precio_unitario: number;
+      moneda?: string;
+      notas_cambio?: string;
     }) => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // Primero obtener el precio actual para guardarlo como histórico
       const { data: currentEquipment } = await supabase
         .from('supplier_equipments')
-        .select('precio_unitario')
+        .select('precio_unitario, moneda')
         .eq('id', id)
         .single();
 
+      const updateData: any = {
+        precio_anterior: currentEquipment?.precio_unitario,
+        precio_unitario,
+        fecha_cambio_precio: new Date().toISOString().split('T')[0],
+        fecha_ultima_actualizacion: new Date().toISOString().split('T')[0],
+        usuario_ultima_modificacion: user?.id,
+      };
+
+      if (moneda) {
+        updateData.moneda = moneda;
+      }
+
+      if (notas_cambio) {
+        updateData.notas_cambio = notas_cambio;
+      }
+
       const { data, error } = await supabase
         .from('supplier_equipments')
-        .update({
-          precio_anterior: currentEquipment?.precio_unitario,
-          precio_unitario,
-          fecha_cambio_precio: new Date().toISOString().split('T')[0],
-          fecha_ultima_actualizacion: new Date().toISOString().split('T')[0],
-        })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -142,13 +166,57 @@ export const useSupplierEquipments = (supplierId?: string, searchTerm?: string) 
     },
   });
 
+  const updateEquipmentMutation = useMutation({
+    mutationFn: async ({ 
+      id, 
+      updates 
+    }: { 
+      id: string; 
+      updates: Record<string, any>;
+    }) => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data, error } = await supabase
+        .from('supplier_equipments')
+        .update({
+          ...updates,
+          usuario_ultima_modificacion: user?.id,
+          fecha_ultima_actualizacion: new Date().toISOString().split('T')[0],
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['supplier-equipments'] });
+      toast({
+        title: "Equipo actualizado",
+        description: "El equipo se actualizó correctamente",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating equipment:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el equipo",
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     equipments: supplierEquipmentsQuery.data || [],
     isLoading: supplierEquipmentsQuery.isLoading,
     error: supplierEquipmentsQuery.error,
     createSupplierEquipment: createSupplierEquipmentMutation.mutate,
     updatePrice: updatePriceMutation.mutate,
+    updateEquipment: updateEquipmentMutation.mutate,
     isCreating: createSupplierEquipmentMutation.isPending,
     isUpdatingPrice: updatePriceMutation.isPending,
+    isUpdating: updateEquipmentMutation.isPending,
   };
 };

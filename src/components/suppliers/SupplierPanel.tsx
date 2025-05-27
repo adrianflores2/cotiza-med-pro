@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, DollarSign, Package, FileText } from 'lucide-react';
+import { Search, Plus, DollarSign, Package, FileText, Wrench } from 'lucide-react';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { useSupplierEquipments } from '@/hooks/useSupplierEquipments';
 import { useMasterEquipment } from '@/hooks/useMasterEquipment';
@@ -16,11 +15,14 @@ import { useIndependentProformas } from '@/hooks/useIndependentProformas';
 import { SupplierForm } from './SupplierForm';
 import { EquipmentForm } from './EquipmentForm';
 import { ProformaForm } from './ProformaForm';
+import { PriceUpdateDialog } from './PriceUpdateDialog';
+import { EquipmentAccessoriesTab } from './EquipmentAccessoriesTab';
 
 export const SupplierPanel = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState<string>('');
+  const [priceUpdateEquipment, setPriceUpdateEquipment] = useState<any>(null);
 
   const { suppliers, isLoading: loadingSuppliers } = useSuppliers();
   const { equipments, isLoading: loadingEquipments } = useSupplierEquipments(selectedSupplier || undefined, searchTerm);
@@ -91,10 +93,11 @@ export const SupplierPanel = () => {
       </div>
 
       <Tabs defaultValue="catalog" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="catalog">Catálogo de Equipos</TabsTrigger>
           <TabsTrigger value="suppliers">Gestión de Proveedores</TabsTrigger>
           <TabsTrigger value="proformas">Proformas Independientes</TabsTrigger>
+          <TabsTrigger value="accessories">Accesorios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="catalog" className="space-y-4">
@@ -242,19 +245,23 @@ export const SupplierPanel = () => {
                               >
                                 <FileText className="h-4 w-4" />
                               </Button>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <DollarSign className="h-4 w-4" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                  <DialogHeader>
-                                    <DialogTitle>Actualizar Precio</DialogTitle>
-                                  </DialogHeader>
-                                  {/* Price update form would go here */}
-                                </DialogContent>
-                              </Dialog>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => setPriceUpdateEquipment(equipment)}
+                              >
+                                <DollarSign className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  // Navigate to accessories for this equipment
+                                  setSelectedEquipment(equipment.equipment_id);
+                                }}
+                              >
+                                <Wrench className="h-4 w-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -416,7 +423,33 @@ export const SupplierPanel = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="accessories" className="space-y-4">
+          {selectedEquipment ? (
+            <EquipmentAccessoriesTab 
+              equipmentId={selectedEquipment}
+              equipmentName={masterEquipment?.find(eq => eq.id === selectedEquipment)?.nombre_equipo || 'Equipo seleccionado'}
+            />
+          ) : (
+            <Card>
+              <CardContent className="text-center py-8">
+                <Wrench className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">Selecciona un equipo para ver sus accesorios</p>
+                <p className="text-sm text-gray-400 mt-2">Puedes seleccionar un equipo desde la pestaña "Catálogo de Equipos"</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* Price Update Dialog */}
+      {priceUpdateEquipment && (
+        <PriceUpdateDialog
+          isOpen={!!priceUpdateEquipment}
+          onClose={() => setPriceUpdateEquipment(null)}
+          equipment={priceUpdateEquipment}
+        />
+      )}
     </div>
   );
 };
