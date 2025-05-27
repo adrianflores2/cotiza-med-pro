@@ -50,25 +50,36 @@ export const useEquipmentChangeLogs = (equipmentId?: string) => {
       valor_nuevo?: string;
       observaciones?: string;
     }) => {
-      console.log('Creating equipment change log:', logData);
+      console.log('useEquipmentChangeLogs: Creating equipment change log:', logData);
       
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('useEquipmentChangeLogs: Error getting user:', userError);
+        throw userError;
+      }
+
+      if (!user) {
+        console.error('useEquipmentChangeLogs: No authenticated user found');
+        throw new Error('Usuario no autenticado');
+      }
       
       const { data, error } = await supabase
         .from('equipment_change_logs')
         .insert({
           ...logData,
-          usuario_id: user?.id
+          usuario_id: user.id
         })
         .select()
         .single();
 
       if (error) {
-        console.error('Error creating change log:', error);
+        console.error('useEquipmentChangeLogs: Error creating change log:', error);
         throw error;
       }
 
+      console.log('useEquipmentChangeLogs: Change log created successfully:', data);
       return data;
     },
     onSuccess: () => {
@@ -79,7 +90,7 @@ export const useEquipmentChangeLogs = (equipmentId?: string) => {
       });
     },
     onError: (error) => {
-      console.error('Error creating change log:', error);
+      console.error('useEquipmentChangeLogs: Error creating change log:', error);
       toast({
         title: "Error",
         description: "No se pudo registrar el cambio en el historial",
@@ -92,7 +103,7 @@ export const useEquipmentChangeLogs = (equipmentId?: string) => {
     changeLogs: changeLogsQuery.data || [],
     isLoading: changeLogsQuery.isLoading,
     error: changeLogsQuery.error,
-    createChangeLog: createChangeLogMutation.mutateAsync, // Using mutateAsync for better async handling
+    createChangeLog: createChangeLogMutation.mutateAsync,
     isCreatingLog: createChangeLogMutation.isPending,
   };
 };

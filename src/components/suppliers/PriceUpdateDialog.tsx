@@ -49,7 +49,10 @@ export const PriceUpdateDialog = ({ isOpen, onClose, equipment }: PriceUpdateDia
     console.log('PriceUpdateDialog: Submitting price update', { equipmentId: equipment.id, data });
     
     try {
-      // Update the price
+      // Store the previous price for comparison
+      const previousPrice = equipment.precio_unitario;
+      
+      // Update the price first
       await updatePrice({
         id: equipment.id,
         precio_unitario: data.precio_unitario,
@@ -57,21 +60,29 @@ export const PriceUpdateDialog = ({ isOpen, onClose, equipment }: PriceUpdateDia
         notas_cambio: data.notas_cambio,
       });
 
-      // Create a change log entry
-      if (equipment.precio_unitario !== data.precio_unitario) {
-        await createChangeLog({
-          equipment_id: equipment.id,
-          tipo_cambio: 'precio_actualizado',
-          valor_anterior: equipment.precio_unitario ? equipment.precio_unitario.toString() : 'null',
-          valor_nuevo: data.precio_unitario.toString(),
-          observaciones: data.notas_cambio || 'Precio actualizado desde el diálogo de actualización'
-        });
+      // Create a change log entry if the price actually changed
+      if (previousPrice !== data.precio_unitario) {
+        console.log('PriceUpdateDialog: Creating change log for price update');
+        
+        try {
+          await createChangeLog({
+            equipment_id: equipment.id,
+            tipo_cambio: 'precio_actualizado',
+            valor_anterior: previousPrice ? previousPrice.toString() : 'null',
+            valor_nuevo: data.precio_unitario.toString(),
+            observaciones: data.notas_cambio || 'Precio actualizado desde el diálogo de actualización'
+          });
+          console.log('PriceUpdateDialog: Change log created successfully');
+        } catch (logError) {
+          console.error('PriceUpdateDialog: Error creating change log (non-critical):', logError);
+          // Don't fail the whole operation if logging fails
+        }
       }
       
       reset();
       onClose();
     } catch (error) {
-      console.error('Error updating price:', error);
+      console.error('PriceUpdateDialog: Error updating price:', error);
     }
   };
 
