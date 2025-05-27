@@ -31,6 +31,8 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
   if (!quotation) return null;
 
   console.log('QuotationViewDialog: Quotation data:', quotation);
+  console.log('QuotationViewDialog: Supplier data:', quotation.supplier);
+  console.log('QuotationViewDialog: Cotizador data:', quotation.cotizador);
   console.log('QuotationViewDialog: Accessories:', quotation.accessories || quotation.quotation_accessories);
 
   const getStatusColor = (estado: string) => {
@@ -64,8 +66,14 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
     return `${currency} ${price.toLocaleString()}`;
   };
 
-  // Get accessories from quotation data
+  // Get accessories from quotation data with proper fallback
   const accessories = quotation.accessories || quotation.quotation_accessories || [];
+  
+  // Get supplier data with proper fallback
+  const supplier = quotation.supplier || quotation.suppliers;
+  
+  // Get cotizador data with proper fallback
+  const cotizador = quotation.cotizador || quotation.users;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -109,12 +117,13 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
                   </div>
                 )}
 
-                {quotation.cotizador && (
+                {cotizador && (
                   <div className="flex items-center space-x-2">
                     <User className="w-4 h-4 text-gray-500" />
                     <div>
                       <span className="text-gray-600">Cotizador:</span>
-                      <p className="font-medium">{quotation.cotizador.nombre}</p>
+                      <p className="font-medium">{cotizador.nombre}</p>
+                      <p className="text-xs text-gray-500">{cotizador.email}</p>
                     </div>
                   </div>
                 )}
@@ -153,7 +162,7 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
             </Card>
 
             {/* Proveedor */}
-            {quotation.supplier && (
+            {supplier && (
               <Card>
                 <CardContent className="pt-4">
                   <div className="flex items-center space-x-2 mb-3">
@@ -163,22 +172,24 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Razón Social:</span>
-                      <span className="font-medium">{quotation.supplier.razon_social}</span>
+                      <span className="font-medium">{supplier.razon_social}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">RUC:</span>
-                      <span className="font-medium">{quotation.supplier.ruc}</span>
-                    </div>
-                    {quotation.supplier.pais && (
+                    {supplier.ruc && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">País:</span>
-                        <span className="font-medium">{quotation.supplier.pais}</span>
+                        <span className="text-gray-600">RUC:</span>
+                        <span className="font-medium">{supplier.ruc}</span>
                       </div>
                     )}
-                    {quotation.supplier.tipo_proveedor && (
+                    {supplier.pais && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">País:</span>
+                        <span className="font-medium">{supplier.pais}</span>
+                      </div>
+                    )}
+                    {supplier.tipo_proveedor && (
                       <div className="flex justify-between">
                         <span className="text-gray-600">Tipo:</span>
-                        <span className="font-medium capitalize">{quotation.supplier.tipo_proveedor}</span>
+                        <span className="font-medium capitalize">{supplier.tipo_proveedor}</span>
                       </div>
                     )}
                   </div>
@@ -255,7 +266,7 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
                           <TableCell className="text-center">{accessory.cantidad}</TableCell>
                           <TableCell className="text-right">
                             {accessory.precio_unitario 
-                              ? formatPrice(accessory.precio_unitario, accessory.moneda)
+                              ? formatPrice(accessory.precio_unitario, accessory.moneda || quotation.moneda)
                               : 'No definido'
                             }
                           </TableCell>
@@ -301,7 +312,10 @@ export const QuotationViewDialog = ({ quotation, isOpen, onClose }: QuotationVie
                       <p className="text-xs text-gray-600">Archivo de cotización</p>
                     </div>
                   </div>
-                  <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                  <button 
+                    onClick={() => window.open(quotation.proforma_url, '_blank')}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  >
                     Ver archivo
                   </button>
                 </div>

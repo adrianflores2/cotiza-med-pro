@@ -13,7 +13,8 @@ import {
   AlertCircle,
   Download,
   Eye,
-  User
+  User,
+  Package
 } from "lucide-react";
 import {
   Select,
@@ -131,6 +132,16 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
     return Math.max(...quotations.map(q => q.precio_unitario));
   };
 
+  const calculateAccessoryPrice = (quotation: any) => {
+    if (!quotation.accessories) return 0;
+    
+    return quotation.accessories
+      .filter((acc: any) => !acc.incluido_en_proforma && acc.precio_unitario)
+      .reduce((total: number, acc: any) => {
+        return total + (acc.precio_unitario * acc.cantidad);
+      }, 0);
+  };
+
   const handleExportExcel = () => {
     toast({
       title: "Exportando a Excel",
@@ -243,71 +254,92 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                               <th className="text-left py-2 px-3 text-sm font-medium">Cotizador</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Origen</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Precio</th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">
+                                <div className="flex items-center space-x-1">
+                                  <Package className="w-3 h-3" />
+                                  <span>Accesorios</span>
+                                </div>
+                              </th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Entrega</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Fecha</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Acciones</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {item.quotations.map((quotation) => (
-                              <tr 
-                                key={quotation.id} 
-                                className={`border-b border-gray-100 hover:bg-gray-50 ${
-                                  quotation.selected ? 'bg-blue-50 border-blue-200' : ''
-                                }`}
-                              >
-                                <td className="py-3 px-3">
-                                  <input
-                                    type="radio"
-                                    name={`quotation-${item.id}`}
-                                    checked={quotation.selected || false}
-                                    onChange={() => handleQuotationSelection(item.id, quotation.id)}
-                                    className="w-4 h-4 text-blue-600"
-                                    disabled={isSelecting}
-                                  />
-                                </td>
-                                <td className="py-3 px-3">
-                                  <div>
-                                    <p className="font-medium text-sm">{quotation.marca}</p>
-                                    <p className="text-xs text-gray-500">{quotation.modelo}</p>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-sm">{quotation.supplier.razon_social}</td>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center space-x-1 text-sm">
-                                    <User className="w-3 h-3 text-gray-500" />
-                                    <span>{quotation.cotizador?.nombre || 'No asignado'}</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-sm">{quotation.procedencia || quotation.supplier.pais || '-'}</td>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-sm font-medium">
-                                      {quotation.moneda} {quotation.precio_unitario.toLocaleString()}
-                                    </span>
-                                    {quotation.precio_unitario === bestPrice && (
-                                      <TrendingDown className="w-4 h-4 text-green-600" />
-                                    )}
-                                    {quotation.precio_unitario === worstPrice && item.quotations.length > 1 && (
-                                      <TrendingUp className="w-4 h-4 text-red-600" />
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3 text-sm">{quotation.tiempo_entrega || '-'}</td>
-                                <td className="py-3 px-3 text-sm">{quotation.fecha_cotizacion}</td>
-                                <td className="py-3 px-3">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleViewQuotation(quotation)}
-                                    className="flex items-center space-x-1"
-                                  >
-                                    <Eye className="w-3 h-3" />
-                                    <span>Ver</span>
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
+                            {item.quotations.map((quotation) => {
+                              const accessoryPrice = calculateAccessoryPrice(quotation);
+                              
+                              return (
+                                <tr 
+                                  key={quotation.id} 
+                                  className={`border-b border-gray-100 hover:bg-gray-50 ${
+                                    quotation.selected ? 'bg-blue-50 border-blue-200' : ''
+                                  }`}
+                                >
+                                  <td className="py-3 px-3">
+                                    <input
+                                      type="radio"
+                                      name={`quotation-${item.id}`}
+                                      checked={quotation.selected || false}
+                                      onChange={() => handleQuotationSelection(item.id, quotation.id)}
+                                      className="w-4 h-4 text-blue-600"
+                                      disabled={isSelecting}
+                                    />
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    <div>
+                                      <p className="font-medium text-sm">{quotation.marca}</p>
+                                      <p className="text-xs text-gray-500">{quotation.modelo}</p>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-sm">{quotation.supplier.razon_social}</td>
+                                  <td className="py-3 px-3">
+                                    <div className="flex items-center space-x-1 text-sm">
+                                      <User className="w-3 h-3 text-gray-500" />
+                                      <span>{quotation.cotizador?.nombre || 'No asignado'}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-sm">{quotation.procedencia || quotation.supplier.pais || '-'}</td>
+                                  <td className="py-3 px-3">
+                                    <div className="flex items-center space-x-1">
+                                      <span className="text-sm font-medium">
+                                        {quotation.moneda} {quotation.precio_unitario.toLocaleString()}
+                                      </span>
+                                      {quotation.precio_unitario === bestPrice && (
+                                        <TrendingDown className="w-4 h-4 text-green-600" />
+                                      )}
+                                      {quotation.precio_unitario === worstPrice && item.quotations.length > 1 && (
+                                        <TrendingUp className="w-4 h-4 text-red-600" />
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    <div className="text-sm">
+                                      {accessoryPrice > 0 ? (
+                                        <span className="text-orange-600 font-medium">
+                                          +{quotation.moneda} {accessoryPrice.toLocaleString()}
+                                        </span>
+                                      ) : (
+                                        <span className="text-green-600">Incluidos</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-sm">{quotation.tiempo_entrega || '-'}</td>
+                                  <td className="py-3 px-3 text-sm">{quotation.fecha_cotizacion}</td>
+                                  <td className="py-3 px-3">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleViewQuotation(quotation)}
+                                      className="flex items-center space-x-1"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>Ver</span>
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

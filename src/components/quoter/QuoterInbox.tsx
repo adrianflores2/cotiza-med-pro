@@ -49,7 +49,7 @@ export const QuoterInbox = () => {
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [availableQuotations, setAvailableQuotations] = useState<any[]>([]);
-  const { assignments, isLoading, refetch } = useItemAssignments();
+  const { assignments, isLoading } = useItemAssignments();
   const { user } = useAuth();
   const { deleteQuotation } = useQuotationManagement();
 
@@ -63,7 +63,7 @@ export const QuoterInbox = () => {
         preselectedItem={selectedAssignment.item}
         onBack={() => {
           setSelectedAssignment(null);
-          refetch(); // Refresh data when returning from form
+          // Note: We don't need to call refetch here as useItemAssignments handles updates automatically
         }}
       />
     );
@@ -121,13 +121,13 @@ export const QuoterInbox = () => {
   const handleViewQuotations = async (assignment: any) => {
     const item = assignment.project_items;
     
-    // Fetch ALL quotations for this item made by the current user
+    // Fetch ALL quotations for this item made by the current user with better data structure
     try {
       const { data: quotations, error } = await supabase
         .from('quotations')
         .select(`
           *,
-          suppliers!inner (
+          suppliers (
             razon_social,
             ruc,
             pais,
@@ -204,8 +204,7 @@ export const QuoterInbox = () => {
       setSelectedQuotation(updatedQuotations[0]);
     }
     
-    // Refresh assignments to update status
-    refetch();
+    // useItemAssignments hook will automatically update data through query invalidation
   };
 
   const handleQuotationSelection = (quotation: any) => {

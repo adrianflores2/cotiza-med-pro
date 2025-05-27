@@ -58,6 +58,9 @@ export const useQuotationManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['items-with-quotations'] });
       queryClient.invalidateQueries({ queryKey: ['supplier-equipments'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      
+      // Force a fresh fetch of assignment data
+      queryClient.refetchQueries({ queryKey: ['item-assignments'] });
     },
     onError: (error: Error) => {
       console.error('Quotation deletion error:', error);
