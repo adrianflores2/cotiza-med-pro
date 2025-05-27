@@ -11,7 +11,9 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Download
+  Download,
+  Eye,
+  User
 } from "lucide-react";
 import {
   Select,
@@ -24,6 +26,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQuotationComparisons } from "@/hooks/useQuotationComparisons";
 import { useAuth } from "@/hooks/useAuth";
+import { QuotationViewDialog } from "./QuotationViewDialog";
+import { useProjects } from "@/hooks/useProjects";
 
 interface QuotationComparisonProps {
   projectId?: string;
@@ -31,15 +35,19 @@ interface QuotationComparisonProps {
 
 export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState(projectId || "all");
+  const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { projects } = useProjects();
   
   const {
     itemsWithQuotations,
     isLoading,
     selectQuotation,
     isSelecting
-  } = useQuotationComparisons(projectId);
+  } = useQuotationComparisons(selectedProjectId !== "all" ? selectedProjectId : undefined);
 
   const filteredItems = itemsWithQuotations.filter(item =>
     item.equipment.nombre_equipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -62,6 +70,11 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
       quotationId,
       comercialId: user.id,
     });
+  };
+
+  const handleViewQuotation = (quotation: any) => {
+    setSelectedQuotation(quotation);
+    setIsViewDialogOpen(true);
   };
 
   const handleMarginChange = (itemId: string, margin: number, basePrice: number, quantity: number) => {
@@ -152,6 +165,19 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
             className="pl-10"
           />
         </div>
+        <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+          <SelectTrigger className="w-full sm:w-64">
+            <SelectValue placeholder="Seleccionar proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los proyectos</SelectItem>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {filteredItems.length === 0 ? (
@@ -160,7 +186,7 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
             <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No hay ítems con cotizaciones</h3>
             <p className="text-gray-600">
-              {searchTerm ? 'No se encontraron ítems que coincidan con tu búsqueda.' : 'Aún no hay ítems con cotizaciones para comparar.'}
+              {searchTerm || selectedProjectId !== "all" ? 'No se encontraron ítems que coincidan con los filtros.' : 'Aún no hay ítems con cotizaciones para comparar.'}
             </p>
           </CardContent>
         </Card>
@@ -207,10 +233,12 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                               <th className="text-left py-2 px-3 text-sm font-medium">Seleccionar</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Marca/Modelo</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Proveedor</th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">Cotizador</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Origen</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Precio</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Entrega</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Estado</th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">Fecha</th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">Acciones</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -238,6 +266,12 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                                   </div>
                                 </td>
                                 <td className="py-3 px-3 text-sm">{quotation.supplier.razon_social}</td>
+                                <td className="py-3 px-3">
+                                  <div className="flex items-center space-x-1 text-sm">
+                                    <User className="w-3 h-3 text-gray-500" />
+                                    <span>{quotation.cotizador?.nombre || 'No asignado'}</span>
+                                  </div>
+                                </td>
                                 <td className="py-3 px-3 text-sm">{quotation.procedencia || quotation.supplier.pais || '-'}</td>
                                 <td className="py-3 px-3">
                                   <div className="flex items-center space-x-1">
@@ -253,11 +287,17 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                                   </div>
                                 </td>
                                 <td className="py-3 px-3 text-sm">{quotation.tiempo_entrega || '-'}</td>
+                                <td className="py-3 px-3 text-sm">{quotation.fecha_cotizacion}</td>
                                 <td className="py-3 px-3">
-                                  <div className="flex items-center space-x-1">
-                                    <Clock className="w-3 h-3 text-gray-500" />
-                                    <span className="text-xs text-gray-500">{quotation.fecha_cotizacion}</span>
-                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleViewQuotation(quotation)}
+                                    className="flex items-center space-x-1"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    <span>Ver</span>
+                                  </Button>
                                 </td>
                               </tr>
                             ))}
@@ -321,6 +361,15 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
           })}
         </div>
       )}
+
+      <QuotationViewDialog
+        quotation={selectedQuotation}
+        isOpen={isViewDialogOpen}
+        onClose={() => {
+          setIsViewDialogOpen(false);
+          setSelectedQuotation(null);
+        }}
+      />
     </div>
   );
 };

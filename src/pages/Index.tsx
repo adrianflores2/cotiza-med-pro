@@ -93,6 +93,11 @@ const AppContent = () => {
     setCurrentView("projects");
   };
 
+  const handleViewQuotationComparison = (projectId?: string) => {
+    setSelectedProject(projectId ? projects.find(p => p.id === projectId) : null);
+    setCurrentView("quotation-comparison");
+  };
+
   const renderCurrentView = () => {
     try {
       switch (currentView) {
@@ -132,7 +137,7 @@ const AppContent = () => {
         case "quoter-inbox":
           return <QuoterInbox />;
         case "quotation-comparison":
-          return <QuotationComparison />;
+          return <QuotationComparison projectId={selectedProject?.id} />;
         case "master-equipment":
           return <MasterEquipmentPanel userRole={userRole || 'coordinador'} />;
         case "supplier-management":

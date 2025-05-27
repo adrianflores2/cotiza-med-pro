@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -42,6 +41,10 @@ export interface ItemWithQuotations {
     supplier: {
       razon_social: string;
       pais?: string;
+    };
+    cotizador?: {
+      nombre: string;
+      email: string;
     };
     procedencia?: string;
     selected?: boolean;
@@ -87,6 +90,10 @@ export const useQuotationComparisons = (projectId?: string) => {
             suppliers!inner (
               razon_social,
               pais
+            ),
+            users!quotations_cotizador_id_fkey (
+              nombre,
+              email
             )
           ),
           quotation_comparisons (
@@ -125,6 +132,7 @@ export const useQuotationComparisons = (projectId?: string) => {
         quotations: (item.quotations || []).map(quotation => ({
           ...quotation,
           supplier: quotation.suppliers,
+          cotizador: quotation.users,
           selected: item.quotation_comparisons?.[0]?.cotizacion_seleccionada_id === quotation.id
         })),
         comparison: item.quotation_comparisons?.[0] || undefined
@@ -133,7 +141,7 @@ export const useQuotationComparisons = (projectId?: string) => {
       console.log('Fetched items with quotations:', transformedData.length);
       return transformedData;
     },
-    enabled: !!projectId,
+    enabled: true,
   });
 
   const selectQuotationMutation = useMutation({
