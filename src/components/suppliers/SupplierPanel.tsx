@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, DollarSign, Package, FileText, Wrench, Edit } from 'lucide-react';
+import { Search, Plus, DollarSign, Package, FileText, Wrench, Edit, Eye } from 'lucide-react';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { useSupplierEquipments } from '@/hooks/useSupplierEquipments';
 import { useMasterEquipment } from '@/hooks/useMasterEquipment';
@@ -19,6 +18,8 @@ import { ProformaForm } from './ProformaForm';
 import { PriceUpdateDialog } from './PriceUpdateDialog';
 import { SupplierEditDialog } from './SupplierEditDialog';
 import { EquipmentAccessoriesTab } from './EquipmentAccessoriesTab';
+import { IndependentProformasView } from './IndependentProformasView';
+import { EquipmentProformasDialog } from './EquipmentProformasDialog';
 import { useAuth } from '@/hooks/useAuth';
 
 export const SupplierPanel = () => {
@@ -27,12 +28,13 @@ export const SupplierPanel = () => {
   const [selectedEquipment, setSelectedEquipment] = useState<string>('');
   const [priceUpdateEquipment, setPriceUpdateEquipment] = useState<any>(null);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
+  const [proformasDialogEquipment, setProformasDialogEquipment] = useState<{id: string, name: string} | null>(null);
 
   const { userRole } = useAuth();
   const { suppliers, isLoading: loadingSuppliers } = useSuppliers();
   const { equipments, isLoading: loadingEquipments } = useSupplierEquipments(selectedSupplier || undefined, searchTerm);
   const { equipment: masterEquipment, isLoading: loadingMasterEquipment } = useMasterEquipment();
-  const { proformas } = useIndependentProformas(selectedEquipment);
+  const { proformas: allProformas, isLoading: loadingAllProformas } = useIndependentProformas(); // Fetch all proformas
 
   console.log('SupplierPanel: suppliers:', suppliers?.length || 0);
   console.log('SupplierPanel: masterEquipment:', masterEquipment?.length || 0);
@@ -77,6 +79,17 @@ export const SupplierPanel = () => {
 
   // Validar si los datos están listos para mostrar formularios
   const isDataReady = !loadingMasterEquipment && masterEquipment && masterEquipment.length > 0;
+
+  // Function to handle opening proformas dialog
+  const handleViewProformas = (equipmentId: string) => {
+    const equipment = masterEquipment?.find(eq => eq.id === equipmentId);
+    if (equipment) {
+      setProformasDialogEquipment({
+        id: equipmentId,
+        name: equipment.nombre_equipo
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -272,10 +285,10 @@ export const SupplierPanel = () => {
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => setSelectedEquipment(equipment.equipment_id)}
+                                onClick={() => handleViewProformas(equipment.equipment_id)}
                                 title="Ver proformas"
                               >
-                                <FileText className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                               <Button 
                                 variant="outline" 
@@ -386,85 +399,33 @@ export const SupplierPanel = () => {
         </TabsContent>
 
         <TabsContent value="proformas" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Proformas Independientes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-between items-center mb-4">
-                <p className="text-muted-foreground">
-                  Gestiona proformas no ligadas a proyectos específicos
-                </p>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button disabled={loadingEquipments}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      {loadingEquipments ? 'Cargando...' : 'Nueva Proforma'}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Crear Proforma Independiente</DialogTitle>
-                    </DialogHeader>
-                    <ProformaForm />
-                  </DialogContent>
-                </Dialog>
-              </div>
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-xl font-semibold">Proformas Independientes</h2>
+              <p className="text-muted-foreground">
+                Gestiona proformas no ligadas a proyectos específicos
+              </p>
+            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button disabled={loadingEquipments}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {loadingEquipments ? 'Cargando...' : 'Nueva Proforma'}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Crear Proforma Independiente</DialogTitle>
+                </DialogHeader>
+                <ProformaForm />
+              </DialogContent>
+            </Dialog>
+          </div>
 
-              {selectedEquipment && proformas.length > 0 && (
-                <div className="border rounded-lg">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Proveedor</TableHead>
-                        <TableHead>Equipo</TableHead>
-                        <TableHead>Precio</TableHead>
-                        <TableHead>Moneda</TableHead>
-                        <TableHead>Tiempo Entrega</TableHead>
-                        <TableHead>Estado</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {proformas.map((proforma) => (
-                        <TableRow key={proforma.id}>
-                          <TableCell>
-                            {new Date(proforma.fecha_proforma).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            {proforma.supplier_equipments?.suppliers?.razon_social}
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">
-                                {proforma.supplier_equipments?.master_equipment?.nombre_equipo}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {proforma.supplier_equipments?.marca} - {proforma.supplier_equipments?.modelo}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {formatPrice(proforma.precio_unitario, proforma.moneda)}
-                          </TableCell>
-                          <TableCell>{proforma.moneda}</TableCell>
-                          <TableCell>{proforma.tiempo_entrega || 'No especificado'}</TableCell>
-                          <TableCell>
-                            <Badge variant={proforma.vigente ? "default" : "secondary"}>
-                              {proforma.vigente ? 'Vigente' : 'Vencida'}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <IndependentProformasView 
+            proformas={allProformas} 
+            isLoading={loadingAllProformas} 
+          />
         </TabsContent>
 
         <TabsContent value="accessories" className="space-y-4">
@@ -500,6 +461,16 @@ export const SupplierPanel = () => {
           isOpen={!!editingSupplier}
           onClose={() => setEditingSupplier(null)}
           supplier={editingSupplier}
+        />
+      )}
+
+      {/* Equipment Proformas Dialog */}
+      {proformasDialogEquipment && (
+        <EquipmentProformasDialog
+          isOpen={!!proformasDialogEquipment}
+          onClose={() => setProformasDialogEquipment(null)}
+          equipmentId={proformasDialogEquipment.id}
+          equipmentName={proformasDialogEquipment.name}
         />
       )}
     </div>

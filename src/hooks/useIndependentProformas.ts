@@ -47,7 +47,7 @@ export const useIndependentProformas = (supplierEquipmentId?: string) => {
       console.log('useIndependentProformas: Fetched proformas:', data?.length || 0);
       return data || [];
     },
-    enabled: !!supplierEquipmentId,
+    // Remove the enabled condition so it can fetch all proformas when no supplierEquipmentId is provided
   });
 
   const createProformaMutation = useMutation({
