@@ -31,9 +31,11 @@ export const EquipmentCatalogFilters = ({
   isLoading = false 
 }: EquipmentCatalogFiltersProps) => {
   const updateFilter = (key: keyof CatalogFilters, value: any) => {
+    // Convert placeholder values back to undefined for the filters
+    const filterValue = value === 'all' || value === 'any' ? undefined : value;
     onFiltersChange({
       ...filters,
-      [key]: value || undefined
+      [key]: filterValue || undefined
     });
   };
 
@@ -79,7 +81,7 @@ export const EquipmentCatalogFilters = ({
           <div className="space-y-2">
             <Label>Grupo Genérico</Label>
             <Select 
-              value={filters.grupoGenerico || ''} 
+              value={filters.grupoGenerico || 'all'} 
               onValueChange={(value) => updateFilter('grupoGenerico', value)}
               disabled={isLoading}
             >
@@ -87,7 +89,7 @@ export const EquipmentCatalogFilters = ({
                 <SelectValue placeholder="Todos los grupos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los grupos</SelectItem>
+                <SelectItem value="all">Todos los grupos</SelectItem>
                 {availableGroups.map((group) => (
                   <SelectItem key={group} value={group}>
                     {group}
@@ -111,7 +113,7 @@ export const EquipmentCatalogFilters = ({
           <div className="space-y-2">
             <Label>Procedencia</Label>
             <Select 
-              value={filters.procedencia || ''} 
+              value={filters.procedencia || 'any'} 
               onValueChange={(value) => updateFilter('procedencia', value)}
               disabled={isLoading}
             >
@@ -119,7 +121,7 @@ export const EquipmentCatalogFilters = ({
                 <SelectValue placeholder="Cualquier origen" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Cualquier origen</SelectItem>
+                <SelectItem value="any">Cualquier origen</SelectItem>
                 <SelectItem value="Nacional">Nacional</SelectItem>
                 <SelectItem value="Internacional">Internacional</SelectItem>
               </SelectContent>
@@ -140,7 +142,7 @@ export const EquipmentCatalogFilters = ({
           <div className="space-y-2">
             <Label>Tipo de Proveedor</Label>
             <Select 
-              value={filters.tipoProveedor || ''} 
+              value={filters.tipoProveedor || 'any'} 
               onValueChange={(value) => updateFilter('tipoProveedor', value)}
               disabled={isLoading}
             >
@@ -148,7 +150,7 @@ export const EquipmentCatalogFilters = ({
                 <SelectValue placeholder="Cualquier tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Cualquier tipo</SelectItem>
+                <SelectItem value="any">Cualquier tipo</SelectItem>
                 <SelectItem value="nacional">Nacional</SelectItem>
                 <SelectItem value="internacional">Internacional</SelectItem>
               </SelectContent>
@@ -169,7 +171,7 @@ export const EquipmentCatalogFilters = ({
           <div className="space-y-2">
             <Label>Moneda</Label>
             <Select 
-              value={filters.moneda || ''} 
+              value={filters.moneda || 'any'} 
               onValueChange={(value) => updateFilter('moneda', value)}
               disabled={isLoading}
             >
@@ -177,7 +179,7 @@ export const EquipmentCatalogFilters = ({
                 <SelectValue placeholder="Cualquier moneda" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Cualquier moneda</SelectItem>
+                <SelectItem value="any">Cualquier moneda</SelectItem>
                 <SelectItem value="USD">USD</SelectItem>
                 <SelectItem value="PEN">PEN</SelectItem>
                 <SelectItem value="EUR">EUR</SelectItem>
