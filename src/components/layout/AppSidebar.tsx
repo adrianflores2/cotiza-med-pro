@@ -9,7 +9,8 @@ import {
   Building2,
   Users,
   Sliders,
-  Package
+  Package,
+  Wrench
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,6 +37,7 @@ const menuItems = {
     { id: "projects", label: "Proyectos", icon: FolderOpen },
     { id: "item-assignment", label: "Asignar Ítems", icon: ListChecks },
     { id: "quotation-comparison", label: "Comparar Cotizaciones", icon: GitCompare },
+    { id: "master-equipment", label: "Master Equipment", icon: Wrench },
     { id: "supplier-management", label: "Panel de Proveedores", icon: Package },
     { id: "settings", label: "Configuración", icon: Settings },
   ],
@@ -43,12 +45,14 @@ const menuItems = {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "quoter-inbox", label: "Mi Bandeja", icon: Inbox },
     { id: "projects", label: "Ver Proyectos", icon: FolderOpen },
+    { id: "master-equipment", label: "Master Equipment", icon: Wrench },
     { id: "supplier-management", label: "Panel de Proveedores", icon: Package },
   ],
   comercial: [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "quotation-comparison", label: "Comparar Cotizaciones", icon: GitCompare },
     { id: "projects", label: "Proyectos", icon: FolderOpen },
+    { id: "master-equipment", label: "Master Equipment", icon: Wrench },
     { id: "supplier-management", label: "Panel de Proveedores", icon: Package },
   ],
   admin: [
@@ -57,6 +61,7 @@ const menuItems = {
     { id: "item-assignment", label: "Asignar Ítems", icon: ListChecks },
     { id: "quoter-inbox", label: "Bandejas", icon: Inbox },
     { id: "quotation-comparison", label: "Comparar Cotizaciones", icon: GitCompare },
+    { id: "master-equipment", label: "Master Equipment", icon: Wrench },
     { id: "supplier-management", label: "Panel de Proveedores", icon: Package },
     { id: "user-management", label: "Gestión de Usuarios", icon: Users },
     { id: "assignment-rules", label: "Reglas de Asignación", icon: Sliders },

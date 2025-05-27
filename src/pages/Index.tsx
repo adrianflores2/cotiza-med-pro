@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Dashboard } from "@/components/dashboard/Dashboard";
@@ -15,6 +14,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { MasterEquipmentPanel } from "@/components/equipment/MasterEquipmentPanel";
 
 const AppContent = () => {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -67,6 +67,8 @@ const AppContent = () => {
           return <QuoterInbox />;
         case "quotation-comparison":
           return <QuotationComparison />;
+        case "master-equipment":
+          return <MasterEquipmentPanel userRole={userRole || 'coordinador'} />;
         case "supplier-management":
           return <SupplierPanel />;
         case "user-management":
