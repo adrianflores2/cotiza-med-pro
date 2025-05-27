@@ -4,10 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface EquipmentFilters {
   grupoGenerico?: string;
-  procedencia?: string;
   tipoProveedor?: string;
-  precioMin?: number;
-  precioMax?: number;
   moneda?: string;
 }
 
@@ -56,24 +53,12 @@ export const useSupplierEquipments = (
           query = query.eq('master_equipment.grupo_generico', filters.grupoGenerico);
         }
 
-        if (filters.procedencia) {
-          query = query.eq('procedencia', filters.procedencia);
-        }
-
         if (filters.tipoProveedor) {
           query = query.eq('suppliers.tipo_proveedor', filters.tipoProveedor);
         }
 
         if (filters.moneda) {
           query = query.eq('moneda', filters.moneda);
-        }
-
-        if (filters.precioMin !== undefined) {
-          query = query.gte('precio_unitario', filters.precioMin);
-        }
-
-        if (filters.precioMax !== undefined) {
-          query = query.lte('precio_unitario', filters.precioMax);
         }
       }
 
