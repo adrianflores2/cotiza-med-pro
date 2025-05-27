@@ -45,12 +45,14 @@ interface QuotationFormData {
 
 interface SimplifiedQuotationFormProps {
   onBack: () => void;
+  preselectedProject?: any;
+  preselectedItem?: any;
 }
 
-export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps) => {
+export const SimplifiedQuotationForm = ({ onBack, preselectedProject, preselectedItem }: SimplifiedQuotationFormProps) => {
   const [currentStep, setCurrentStep] = useState<'project' | 'model' | 'supplier' | 'quotation'>('project');
-  const [selectedProject, setSelectedProject] = useState<any>(null);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedProject, setSelectedProject] = useState<any>(preselectedProject || null);
+  const [selectedItem, setSelectedItem] = useState<any>(preselectedItem || null);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [selectedMarca, setSelectedMarca] = useState<string>('');
   const [selectedModelo, setSelectedModelo] = useState<string>('');
@@ -73,6 +75,15 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
   });
 
   const watchedTipoCotizacion = watch('tipo_cotizacion');
+
+  // Si hay datos preseleccionados, saltar al paso correspondiente
+  useEffect(() => {
+    if (preselectedProject && preselectedItem) {
+      setCurrentStep('model');
+      setValue('proyecto_id', preselectedProject.id);
+      setValue('item_id', preselectedItem.id);
+    }
+  }, [preselectedProject, preselectedItem, setValue]);
 
   const handleProjectSelect = (project: any, item: any) => {
     console.log('Project selected:', project?.nombre, 'Item:', item?.numero_item);
@@ -173,10 +184,22 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
           // No lanzamos error aquí para no bloquear la cotización principal
         }
       }
+
+      // Actualizar el estado de la asignación a 'cotizado'
+      const { error: assignmentError } = await supabase
+        .from('item_assignments')
+        .update({ estado: 'cotizado' })
+        .eq('item_id', data.item_id)
+        .eq('cotizador_id', user.id);
+
+      if (assignmentError) {
+        console.error('Error updating assignment status:', assignmentError);
+        // No lanzamos error aquí para no bloquear la cotización principal
+      }
       
       toast({
         title: "Cotización creada",
-        description: "La cotización se ha guardado exitosamente",
+        description: "La cotización se ha guardado exitosamente y está disponible para comparación",
       });
       
       onBack();
@@ -206,7 +229,7 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
             item={selectedItem}
             onModelSelect={handleModelSelect}
             onNewModel={handleNewModel}
-            onBack={() => setCurrentStep('project')}
+            onBack={() => preselectedProject ? onBack() : setCurrentStep('project')}
           />
         );
       

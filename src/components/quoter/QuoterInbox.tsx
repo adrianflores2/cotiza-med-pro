@@ -41,17 +41,19 @@ export const QuoterInbox = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
-  const [showNewQuotationForm, setShowNewQuotationForm] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const { assignments, isLoading } = useItemAssignments();
   const { user } = useAuth();
 
   console.log('QuoterInbox: User:', user?.email, 'Total assignments:', assignments.length);
 
-  // Si se está mostrando el formulario de nueva cotización
-  if (showNewQuotationForm) {
+  // Si se está editando una asignación específica, mostrar el formulario
+  if (selectedAssignment) {
     return (
       <SimplifiedQuotationForm 
-        onBack={() => setShowNewQuotationForm(false)}
+        preselectedProject={selectedAssignment.project}
+        preselectedItem={selectedAssignment.item}
+        onBack={() => setSelectedAssignment(null)}
       />
     );
   }
@@ -94,6 +96,17 @@ export const QuoterInbox = () => {
   const inProgressCount = userAssignments.filter(a => a.estado === "en_proceso").length;
   const quotedCount = userAssignments.filter(a => a.estado === "cotizado").length;
 
+  const handleQuoteItem = (assignment: any) => {
+    const item = assignment.project_items;
+    const project = item?.projects;
+    
+    setSelectedAssignment({
+      project: project,
+      item: item,
+      assignment: assignment
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -118,7 +131,7 @@ export const QuoterInbox = () => {
           <h3 className="text-xl font-semibold text-gray-900">Mi Bandeja de Cotización</h3>
           <p className="text-gray-600">Gestiona los ítems asignados para cotización</p>
         </div>
-        <Button onClick={() => setShowNewQuotationForm(true)}>
+        <Button onClick={() => setSelectedAssignment({ project: null, item: null })}>
           <Plus className="w-4 h-4 mr-2" />
           Nueva Cotización
         </Button>
@@ -247,7 +260,7 @@ export const QuoterInbox = () => {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => setShowNewQuotationForm(true)}
+                        onClick={() => handleQuoteItem(assignment)}
                       >
                         <Edit className="w-4 h-4 mr-1" />
                         {assignment.estado === 'cotizado' ? 'Recotizar' : 'Cotizar'}
@@ -287,7 +300,7 @@ export const QuoterInbox = () => {
             }
           </p>
           {userAssignments.length === 0 && (
-            <Button onClick={() => setShowNewQuotationForm(true)}>
+            <Button onClick={() => setSelectedAssignment({ project: null, item: null })}>
               <Plus className="w-4 h-4 mr-2" />
               Crear Nueva Cotización
             </Button>

@@ -46,13 +46,14 @@ export const EquipmentModelSelector = ({
 
   useEffect(() => {
     fetchHistoricalQuotations();
-  }, [item.equipment_id]);
+  }, [item]);
 
   const fetchHistoricalQuotations = async () => {
     try {
       setIsLoading(true);
-      console.log('Fetching historical quotations for equipment:', item.equipment_id);
+      console.log('Fetching historical quotations for equipment:', item?.master_equipment?.codigo);
 
+      // Buscar cotizaciones históricas basadas en el equipment_id del master_equipment
       const { data, error } = await supabase
         .from('quotations')
         .select(`
@@ -62,17 +63,61 @@ export const EquipmentModelSelector = ({
           precio_unitario,
           moneda,
           fecha_cotizacion,
-          suppliers!inner(razon_social)
+          suppliers!inner(razon_social),
+          project_items!inner(
+            master_equipment!inner(
+              codigo,
+              nombre_equipo
+            )
+          )
         `)
-        .eq('item_id', item.id)
+        .eq('project_items.equipment_id', item?.equipment_id)
         .not('marca', 'is', null)
         .not('modelo', 'is', null)
         .order('fecha_cotizacion', { ascending: false });
 
       if (error) {
         console.error('Error fetching historical quotations:', error);
-        throw error;
+        
+        // Intento alternativo: buscar por código de equipo
+        const { data: alternativeData, error: alternativeError } = await supabase
+          .from('quotations')
+          .select(`
+            id,
+            marca,
+            modelo,
+            precio_unitario,
+            moneda,
+            fecha_cotizacion,
+            suppliers!inner(razon_social)
+          `)
+          .not('marca', 'is', null)
+          .not('modelo', 'is', null)
+          .order('fecha_cotizacion', { ascending: false });
+
+        if (alternativeError) {
+          throw alternativeError;
+        }
+
+        console.log('Using alternative query, found quotations:', alternativeData?.length || 0);
+        
+        // Agrupar por marca y modelo únicos
+        const uniqueModels = new Map();
+        alternativeData?.forEach(quotation => {
+          const key = `${quotation.marca}-${quotation.modelo}`;
+          if (!uniqueModels.has(key)) {
+            uniqueModels.set(key, {
+              ...quotation,
+              proveedor: quotation.suppliers
+            });
+          }
+        });
+
+        setHistoricalQuotations(Array.from(uniqueModels.values()));
+        return;
       }
+
+      console.log('Historical quotations found:', data?.length || 0);
 
       // Agrupar por marca y modelo únicos
       const uniqueModels = new Map();
@@ -87,7 +132,7 @@ export const EquipmentModelSelector = ({
       });
 
       setHistoricalQuotations(Array.from(uniqueModels.values()));
-      console.log('Historical quotations loaded:', uniqueModels.size);
+      console.log('Unique historical models loaded:', uniqueModels.size);
     } catch (error) {
       console.error('Error loading historical quotations:', error);
       toast({
@@ -145,11 +190,11 @@ export const EquipmentModelSelector = ({
           <div className="space-y-4">
             {/* Equipment Info */}
             <div className="p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">{item.master_equipment?.nombre_equipo}</h4>
+              <h4 className="font-medium text-gray-900 mb-2">{item?.master_equipment?.nombre_equipo}</h4>
               <div className="text-sm text-gray-600">
-                <p>Código: {item.master_equipment?.codigo}</p>
-                <p>Grupo: {item.master_equipment?.grupo_generico}</p>
-                <p>Cantidad requerida: {item.cantidad} unidades</p>
+                <p>Código: {item?.master_equipment?.codigo}</p>
+                <p>Grupo: {item?.master_equipment?.grupo_generico}</p>
+                <p>Cantidad requerida: {item?.cantidad} unidades</p>
               </div>
             </div>
 
@@ -190,6 +235,15 @@ export const EquipmentModelSelector = ({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Message when no historical data */}
+            {filteredQuotations.length === 0 && !showNewModelForm && (
+              <div className="text-center py-6 text-gray-500">
+                <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <p>No se encontraron cotizaciones históricas para este equipo</p>
+                <p className="text-sm">Código: {item?.master_equipment?.codigo}</p>
               </div>
             )}
 
