@@ -1,10 +1,11 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Users } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Users, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProjectsData } from "@/hooks/useProjectsData";
 import { useEquipmentMatching } from "@/hooks/useEquipmentMatching";
@@ -26,6 +27,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
   const [isProcessingExcel, setIsProcessingExcel] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [assignmentPreview, setAssignmentPreview] = useState<{[key: string]: string}>({});
+  const [processingErrors, setProcessingErrors] = useState<string[]>([]);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -47,6 +49,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
 
     setExcelFile(file);
     setIsProcessingExcel(true);
+    setProcessingErrors([]);
 
     try {
       console.log('NewProject: Processing Excel file:', file.name);
@@ -122,10 +125,12 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
     }
 
     setIsCreatingProject(true);
+    setProcessingErrors([]);
 
     try {
       console.log('NewProject: Processing project items...');
       const projectItems = [];
+      const errors: string[] = [];
       let processedCount = 0;
       let errorCount = 0;
       let assignedCount = 0;
@@ -134,15 +139,27 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
         try {
           console.log(`NewProject: Processing item ${row.numero_item}: ${row.nombre_equipo}`);
           
+          // Validate equipment data before processing
+          if (!row.nombre_equipo || row.nombre_equipo.trim().length < 3) {
+            const error = `Ítem ${row.numero_item}: Nombre de equipo inválido o muy corto`;
+            errors.push(error);
+            console.warn(error);
+            continue;
+          }
+
           const equipment = await findOrCreateEquipment(
-            row.codigo_equipo,
-            row.nombre_equipo,
-            row.grupo_generico,
+            row.codigo_equipo || `AUTO-${row.numero_item}-${Date.now()}`,
+            row.nombre_equipo.trim(),
+            row.grupo_generico || 'General',
             row.cotizador_sugerido
           );
 
           if (!equipment || !equipment.id) {
-            throw new Error(`No se pudo obtener el equipo para: ${row.nombre_equipo}`);
+            const error = `Ítem ${row.numero_item}: No se pudo crear/encontrar el equipo "${row.nombre_equipo}"`;
+            errors.push(error);
+            console.error(error);
+            errorCount++;
+            continue;
           }
 
           if (equipment.cotizador_predeterminado_id) {
@@ -152,9 +169,9 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
           projectItems.push({
             numero_item: row.numero_item,
             equipment_id: equipment.id,
-            cantidad: row.cantidad,
-            requiere_accesorios: row.requiere_accesorios,
-            observaciones: row.observaciones,
+            cantidad: Math.max(1, row.cantidad || 1),
+            requiere_accesorios: row.requiere_accesorios || false,
+            observaciones: row.observaciones?.trim() || undefined,
           });
           
           processedCount++;
@@ -162,19 +179,27 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
           
         } catch (error) {
           errorCount++;
+          const errorMsg = `Ítem ${row.numero_item}: ${error instanceof Error ? error.message : 'Error desconocido'}`;
+          errors.push(errorMsg);
           console.error(`NewProject: Error processing item ${row.numero_item}:`, error);
-          toast({
-            title: "Advertencia",
-            description: `No se pudo procesar el ítem ${row.numero_item}: ${row.nombre_equipo}`,
-            variant: "destructive",
-          });
         }
       }
+
+      setProcessingErrors(errors);
 
       console.log(`NewProject: Processing complete. Success: ${processedCount}, Errors: ${errorCount}, Assigned: ${assignedCount}`);
 
       if (projectItems.length === 0) {
-        throw new Error('No se pudieron procesar los ítems del proyecto');
+        throw new Error('No se pudieron procesar los ítems del proyecto. Revisa el formato del archivo Excel.');
+      }
+
+      // Show warning if there were errors but continue with successful items
+      if (errors.length > 0) {
+        toast({
+          title: "Advertencia",
+          description: `Se procesaron ${processedCount} ítems exitosamente, pero ${errorCount} ítems tuvieron errores. Revisa los detalles abajo.`,
+          variant: "destructive",
+        });
       }
 
       const projectData = {
@@ -195,9 +220,14 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
         createProject(projectData, {
           onSuccess: (data) => {
             console.log('NewProject: Project created successfully:', data);
+            
+            const successMessage = errors.length > 0 
+              ? `Proyecto "${formData.nombre}" creado con ${projectItems.length} ítems (${errorCount} ítems con errores)${assignedCount > 0 ? ` - ${assignedCount} con cotizador asignado` : ''}`
+              : `Proyecto "${formData.nombre}" creado exitosamente con ${projectItems.length} ítems${assignedCount > 0 ? ` (${assignedCount} con cotizador asignado)` : ''}`;
+
             toast({
               title: "Proyecto creado",
-              description: `El proyecto "${formData.nombre}" ha sido creado exitosamente con ${projectItems.length} ítems${assignedCount > 0 ? ` (${assignedCount} con cotizador asignado)` : ''}`,
+              description: successMessage,
             });
             resolve();
             // Navegar de vuelta después de un pequeño delay
@@ -231,7 +261,8 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
     excelDataLength: excelData.length,
     formDataNombre: formData.nombre,
     isCreatingProject,
-    isProcessingExcel
+    isProcessingExcel,
+    processingErrorsCount: processingErrors.length
   });
 
   return (
@@ -349,6 +380,28 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
                     </div>
                   </div>
                 )}
+
+                {processingErrors.length > 0 && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 text-orange-800">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="font-medium">Errores en el procesamiento</span>
+                    </div>
+                    <p className="text-sm text-orange-700 mt-1">
+                      Se encontraron {processingErrors.length} errores al procesar algunos ítems:
+                    </p>
+                    <div className="mt-2 max-h-32 overflow-y-auto">
+                      <ul className="text-xs text-orange-600 space-y-1">
+                        {processingErrors.slice(0, 5).map((error, index) => (
+                          <li key={index}>• {error}</li>
+                        ))}
+                        {processingErrors.length > 5 && (
+                          <li>• ... y {processingErrors.length - 5} errores más</li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -358,6 +411,7 @@ export const NewProject = ({ onBack }: NewProjectProps) => {
                 <li>Primera fila: Encabezados de columnas</li>
                 <li>Columnas esperadas: Item/Número, Código, Nombre/Equipo, Grupo/Categoría, Cantidad</li>
                 <li>Columnas opcionales: Accesorios, Observaciones, <strong>Cotizador/Responsable</strong></li>
+                <li><strong>Nota:</strong> Los nombres de equipos deben tener al menos 3 caracteres</li>
               </ul>
             </div>
           </CardContent>

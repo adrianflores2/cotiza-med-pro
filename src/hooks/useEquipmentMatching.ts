@@ -62,8 +62,49 @@ export const useEquipmentMatching = () => {
       console.error('Error in improved equipment matching, falling back to legacy method:', error);
       
       // Fallback to legacy method if improved matching fails
-      return findOrCreateEquipmentLegacy(codigo, nombre, grupo, cotizadorSugerido);
+      try {
+        return await findOrCreateEquipmentLegacy(codigo, nombre, grupo, cotizadorSugerido);
+      } catch (legacyError) {
+        console.error('Legacy equipment matching also failed:', legacyError);
+        
+        // Last resort: create a basic equipment entry
+        return await createBasicEquipment(codigo, nombre, grupo, cotizadorSugerido);
+      }
     }
+  };
+
+  // Create a basic equipment entry as last resort
+  const createBasicEquipment = async (
+    codigo: string,
+    nombre: string,
+    grupo: string = 'General',
+    cotizadorSugerido?: string
+  ): Promise<MasterEquipment> => {
+    console.log('Creating basic equipment as last resort:', { codigo, nombre, grupo });
+    
+    const cotizadorId = determineCotizador(codigo, nombre, grupo, cotizadorSugerido);
+    
+    const equipmentData = {
+      codigo: codigo || `AUTO-${Date.now()}`,
+      nombre_equipo: nombre || 'Equipo sin nombre',
+      grupo_generico: grupo || 'General',
+      cotizador_predeterminado_id: cotizadorId,
+    };
+
+    const { data, error } = await supabase
+      .from('master_equipment')
+      .insert(equipmentData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Failed to create basic equipment:', error);
+      throw new Error(`No se pudo crear el equipo: ${nombre}. Error: ${error.message}`);
+    }
+
+    console.log('Basic equipment created successfully:', data);
+    queryClient.invalidateQueries({ queryKey: ['master-equipment'] });
+    return data;
   };
 
   // Legacy method as fallback

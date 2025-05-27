@@ -6,6 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CircularProgress } from "@/components/ui/circular-progress";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { 
   Plus, 
   Calendar, 
@@ -14,8 +26,16 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  XCircle
+  XCircle,
+  Trash2,
+  MoreVertical
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ProjectListProps {
   onNewProject: () => void;
@@ -43,8 +63,9 @@ const statusColors = {
 };
 
 export const ProjectList = ({ onNewProject }: ProjectListProps) => {
-  const { projects, isLoading, error } = useProjectsData();
+  const { projects, isLoading, error, deleteProject, isDeleting } = useProjectsData();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Helper function to calculate project progress
   const calculateProgress = (projectItems: any[] = []) => {
@@ -55,6 +76,24 @@ export const ProjectList = ({ onNewProject }: ProjectListProps) => {
     ).length;
     
     return Math.round((completedItems / projectItems.length) * 100);
+  };
+
+  const handleDeleteProject = (projectId: string, projectName: string) => {
+    deleteProject(projectId, {
+      onSuccess: () => {
+        toast({
+          title: "Proyecto eliminado",
+          description: `El proyecto "${projectName}" ha sido eliminado exitosamente`,
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "No se pudo eliminar el proyecto",
+          variant: "destructive",
+        });
+      },
+    });
   };
 
   // Si hay un proyecto seleccionado, mostrar la vista detallada con filtros
@@ -142,12 +181,14 @@ export const ProjectList = ({ onNewProject }: ProjectListProps) => {
             return (
               <Card 
                 key={project.id} 
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => setSelectedProjectId(project.id)}
+                className="hover:shadow-md transition-shadow"
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1">
+                    <div 
+                      className="space-y-1 flex-1 cursor-pointer"
+                      onClick={() => setSelectedProjectId(project.id)}
+                    >
                       <CardTitle className="text-xl">{project.nombre}</CardTitle>
                       {project.observaciones && (
                         <p className="text-sm text-gray-600">
@@ -166,10 +207,52 @@ export const ProjectList = ({ onNewProject }: ProjectListProps) => {
                         <StatusIcon className="w-3 h-3 mr-1" />
                         {statusLabels[project.estado || 'pendiente']}
                       </Badge>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setSelectedProjectId(project.id)}>
+                            Ver detalles
+                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem 
+                                className="text-red-600 focus:text-red-600"
+                                onSelect={(e) => e.preventDefault()}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Eliminar proyecto
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta acción no se puede deshacer. Se eliminará permanentemente el proyecto "{project.nombre}" y todos sus ítems asociados.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteProject(project.id, project.nombre)}
+                                  disabled={isDeleting}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent onClick={() => setSelectedProjectId(project.id)} className="cursor-pointer">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-gray-400" />

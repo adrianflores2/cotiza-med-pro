@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Project, ProjectStatus } from '@/types/database';
@@ -120,13 +121,59 @@ export const useProjectsData = () => {
     },
   });
 
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      console.log('Deleting project:', projectId);
+
+      // First delete all project items
+      const { error: itemsError } = await supabase
+        .from('project_items')
+        .delete()
+        .eq('proyecto_id', projectId);
+
+      if (itemsError) {
+        console.error('Error deleting project items:', itemsError);
+        throw itemsError;
+      }
+
+      // Then delete item assignments
+      const { error: assignmentsError } = await supabase
+        .from('item_assignments')
+        .delete()
+        .eq('item_id', 'IN (SELECT id FROM project_items WHERE proyecto_id = $1)', projectId);
+
+      // Note: This might fail if there are no assignments, but that's okay
+      if (assignmentsError) {
+        console.warn('Warning deleting item assignments:', assignmentsError);
+      }
+
+      // Finally delete the project
+      const { error: projectError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
+
+      if (projectError) {
+        console.error('Error deleting project:', projectError);
+        throw projectError;
+      }
+
+      console.log('Project deleted successfully');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+
   return {
     projects: projectsQuery.data || [],
     isLoading: projectsQuery.isLoading,
     error: projectsQuery.error,
     createProject: createProjectMutation.mutate,
     updateProjectStatus: updateProjectStatusMutation.mutate,
+    deleteProject: deleteProjectMutation.mutate,
     isCreating: createProjectMutation.isPending,
     isUpdating: updateProjectStatusMutation.isPending,
+    isDeleting: deleteProjectMutation.isPending,
   };
 };
