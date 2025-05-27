@@ -17,11 +17,14 @@ export const ProjectSelector = ({ onProjectSelect }: ProjectSelectorProps) => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   
   const { projects, isLoading: loadingProjects } = useProjects();
-  const { projectItems, isLoading: loadingItems } = useProjectDetail(selectedProjectId);
+  const { project, isLoading: loadingItems } = useProjectDetail(selectedProjectId);
 
   const filteredProjects = projects.filter(project =>
     project.nombre.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Get project items from the project object
+  const projectItems = project?.project_items || [];
 
   if (loadingProjects) {
     return (

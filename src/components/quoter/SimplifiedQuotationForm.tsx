@@ -322,7 +322,6 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
                             <Input
                               {...register(`accessories.${index}.nombre`)}
                               placeholder="Nombre del accesorio"
-                              size="sm"
                             />
                           </div>
                           <div>
@@ -331,7 +330,6 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
                               type="number"
                               min="1"
                               {...register(`accessories.${index}.cantidad`, { valueAsNumber: true })}
-                              size="sm"
                             />
                           </div>
                           <div>
@@ -341,13 +339,12 @@ export const SimplifiedQuotationForm = ({ onBack }: SimplifiedQuotationFormProps
                               step="0.01"
                               {...register(`accessories.${index}.precio_unitario`)}
                               placeholder="0.00"
-                              size="sm"
                             />
                           </div>
                           <div>
                             <Label className="text-xs">Moneda</Label>
                             <Select onValueChange={(value) => setValue(`accessories.${index}.moneda`, value)} defaultValue="USD">
-                              <SelectTrigger size="sm">
+                              <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
