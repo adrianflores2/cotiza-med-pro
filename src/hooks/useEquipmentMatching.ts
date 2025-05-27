@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useMasterEquipment } from './useMasterEquipment';
 import { useAssignmentRules } from './useAssignmentRules';
 import { useUsers } from './useUsers';
+import { useImprovedEquipmentMatching } from './useImprovedEquipmentMatching';
 import type { MasterEquipment } from '@/types/database';
 
 export const useEquipmentMatching = () => {
@@ -11,6 +12,7 @@ export const useEquipmentMatching = () => {
   const { findQuoterByRules } = useAssignmentRules();
   const { users } = useUsers();
   const queryClient = useQueryClient();
+  const { findOrCreateEquipmentWithValidation } = useImprovedEquipmentMatching();
 
   const createEquipmentMutation = useMutation({
     mutationFn: async (equipmentData: {
@@ -39,7 +41,39 @@ export const useEquipmentMatching = () => {
     grupo: string = 'General',
     cotizadorSugerido?: string
   ): Promise<MasterEquipment> => {
-    console.log('Finding or creating equipment:', { codigo, nombre, grupo, cotizadorSugerido });
+    console.log('Finding or creating equipment with improved matching:', { codigo, nombre, grupo, cotizadorSugerido });
+    
+    try {
+      // Use the improved matching system
+      const result = await findOrCreateEquipmentWithValidation(codigo, nombre, grupo, cotizadorSugerido);
+      
+      // Log validation results for monitoring
+      if (result.validation.needsReview) {
+        console.warn('Equipment created/found but needs review:', {
+          equipment: result.equipment.codigo,
+          issues: result.validation.issues,
+          suggestions: result.validation.suggestions,
+          wasCreated: result.wasCreated
+        });
+      }
+      
+      return result.equipment;
+    } catch (error) {
+      console.error('Error in improved equipment matching, falling back to legacy method:', error);
+      
+      // Fallback to legacy method if improved matching fails
+      return findOrCreateEquipmentLegacy(codigo, nombre, grupo, cotizadorSugerido);
+    }
+  };
+
+  // Legacy method as fallback
+  const findOrCreateEquipmentLegacy = async (
+    codigo: string,
+    nombre: string,
+    grupo: string = 'General',
+    cotizadorSugerido?: string
+  ): Promise<MasterEquipment> => {
+    console.log('Using legacy equipment matching for:', { codigo, nombre, grupo, cotizadorSugerido });
     
     // Buscar por código exacto primero
     let existingEquipment = equipment.find(eq => 

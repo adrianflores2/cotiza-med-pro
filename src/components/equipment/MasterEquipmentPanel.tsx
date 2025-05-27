@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,10 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Plus, Edit, Trash2, Wrench, AlertTriangle, History } from 'lucide-react';
 import { useMasterEquipment } from '@/hooks/useMasterEquipment';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { ReviewEquipmentPanel } from './ReviewEquipmentPanel';
 import type { UserRole } from '@/types/database';
 
 interface MasterEquipmentPanelProps {
@@ -44,6 +45,12 @@ export const MasterEquipmentPanel = ({ userRole }: MasterEquipmentPanelProps) =>
   const [newAlternativeCode, setNewAlternativeCode] = useState('');
 
   const canEdit = userRole === 'coordinador' || userRole === 'admin';
+
+  // Count equipment needing review
+  const equipmentNeedingReview = equipment.filter(eq => 
+    eq.observaciones_inconsistencias && 
+    eq.observaciones_inconsistencias.includes('REQUIERE REVISIÓN')
+  ).length;
 
   const filteredEquipment = equipment.filter(item =>
     item.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -404,124 +411,152 @@ export const MasterEquipmentPanel = ({ userRole }: MasterEquipmentPanelProps) =>
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Equipos Registrados</CardTitle>
-            <div className="flex items-center space-x-2">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Buscar equipos, nombres alternativos, códigos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-80"
-                />
-              </div>
-              <Badge variant="secondary">
-                {filteredEquipment.length} equipos
+      <Tabs defaultValue="catalog" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="catalog" className="flex items-center gap-2">
+            <Wrench className="w-4 h-4" />
+            Catálogo ({filteredEquipment.length})
+          </TabsTrigger>
+          <TabsTrigger value="review" className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            Revisión {equipmentNeedingReview > 0 && (
+              <Badge variant="destructive" className="ml-1">
+                {equipmentNeedingReview}
               </Badge>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nombre del Equipo</TableHead>
-                  <TableHead>Grupo Genérico</TableHead>
-                  <TableHead>Alternativos</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Fecha Creación</TableHead>
-                  {canEdit && <TableHead className="text-right">Acciones</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEquipment.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.codigo}</TableCell>
-                    <TableCell>{item.nombre_equipo}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{item.grupo_generico}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {item.nombres_alternativos && item.nombres_alternativos.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {item.nombres_alternativos.slice(0, 2).map((name, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
-                                {name}
-                              </Badge>
-                            ))}
-                            {item.nombres_alternativos.length > 2 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{item.nombres_alternativos.length - 2}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                        {item.codigos_alternativos && item.codigos_alternativos.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {item.codigos_alternativos.slice(0, 2).map((code, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {code}
-                              </Badge>
-                            ))}
-                            {item.codigos_alternativos.length > 2 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{item.codigos_alternativos.length - 2}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {item.observaciones_inconsistencias && (
-                        <div className="flex items-center">
-                          <AlertTriangle className="w-4 h-4 text-amber-500 mr-1" />
-                          <span className="text-xs text-amber-600">Con observaciones</span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(item.created_at).toLocaleDateString()}
-                    </TableCell>
-                    {canEdit && (
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(item)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(item.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {filteredEquipment.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No se encontraron equipos con los criterios de búsqueda
-              </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="catalog">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Equipos Registrados</CardTitle>
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <Input
+                      placeholder="Buscar equipos, nombres alternativos, códigos..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 w-80"
+                    />
+                  </div>
+                  <Badge variant="secondary">
+                    {filteredEquipment.length} equipos
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Nombre del Equipo</TableHead>
+                      <TableHead>Grupo Genérico</TableHead>
+                      <TableHead>Alternativos</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Fecha Creación</TableHead>
+                      {canEdit && <TableHead className="text-right">Acciones</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredEquipment.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.codigo}</TableCell>
+                        <TableCell>{item.nombre_equipo}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{item.grupo_generico}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {item.nombres_alternativos && item.nombres_alternativos.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {item.nombres_alternativos.slice(0, 2).map((name, index) => (
+                                  <Badge key={index} variant="secondary" className="text-xs">
+                                    {name}
+                                  </Badge>
+                                ))}
+                                {item.nombres_alternativos.length > 2 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    +{item.nombres_alternativos.length - 2}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                            {item.codigos_alternativos && item.codigos_alternativos.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {item.codigos_alternativos.slice(0, 2).map((code, index) => (
+                                  <Badge key={index} variant="outline" className="text-xs">
+                                    {code}
+                                  </Badge>
+                                ))}
+                                {item.codigos_alternativos.length > 2 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{item.codigos_alternativos.length - 2}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {item.observaciones_inconsistencias && item.observaciones_inconsistencias.includes('REQUIERE REVISIÓN') ? (
+                            <div className="flex items-center">
+                              <AlertTriangle className="w-4 h-4 text-amber-500 mr-1" />
+                              <span className="text-xs text-amber-600">Requiere revisión</span>
+                            </div>
+                          ) : item.observaciones_inconsistencias && item.observaciones_inconsistencias.includes('REVISADO') ? (
+                            <div className="flex items-center">
+                              <History className="w-4 h-4 text-blue-500 mr-1" />
+                              <span className="text-xs text-blue-600">Revisado</span>
+                            </div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(item.created_at).toLocaleDateString()}
+                        </TableCell>
+                        {canEdit && (
+                          <TableCell className="text-right">
+                            <div className="flex justify-end space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(item)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(item.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {filteredEquipment.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No se encontraron equipos con los criterios de búsqueda
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="review">
+          <ReviewEquipmentPanel userRole={userRole} />
+        </TabsContent>
+      </Tabs>
 
       {!canEdit && (
         <Card className="border-amber-200 bg-amber-50">
