@@ -39,6 +39,7 @@ export interface ItemWithQuotations {
     condiciones?: string;
     fecha_cotizacion: string;
     estado: string;
+    tipo_cotizacion: string;
     supplier: {
       razon_social: string;
       pais?: string;
@@ -49,6 +50,24 @@ export interface ItemWithQuotations {
     };
     procedencia?: string;
     selected?: boolean;
+    accessories?: Array<{
+      id: string;
+      nombre: string;
+      cantidad: number;
+      precio_unitario?: number;
+      moneda?: string;
+      incluido_en_proforma: boolean;
+      observaciones?: string;
+    }>;
+    quotation_accessories?: Array<{
+      id: string;
+      nombre: string;
+      cantidad: number;
+      precio_unitario?: number;
+      moneda?: string;
+      incluido_en_proforma: boolean;
+      observaciones?: string;
+    }>;
   }>;
   comparison?: QuotationComparison;
 }
@@ -88,6 +107,7 @@ export const useQuotationComparisons = (projectId?: string) => {
             fecha_cotizacion,
             estado,
             procedencia,
+            tipo_cotizacion,
             suppliers!inner (
               razon_social,
               pais
@@ -95,6 +115,15 @@ export const useQuotationComparisons = (projectId?: string) => {
             users!quotations_cotizador_id_fkey (
               nombre,
               email
+            ),
+            quotation_accessories (
+              id,
+              nombre,
+              cantidad,
+              precio_unitario,
+              moneda,
+              incluido_en_proforma,
+              observaciones
             )
           ),
           quotation_comparisons (
@@ -122,7 +151,7 @@ export const useQuotationComparisons = (projectId?: string) => {
         throw error;
       }
 
-      // Transform data to add selected flag
+      // Transform data to add selected flag and accessories
       const transformedData: ItemWithQuotations[] = (data || []).map(item => ({
         id: item.id,
         numero_item: item.numero_item,
@@ -134,7 +163,9 @@ export const useQuotationComparisons = (projectId?: string) => {
           ...quotation,
           supplier: quotation.suppliers,
           cotizador: quotation.users,
-          selected: item.quotation_comparisons?.[0]?.cotizacion_seleccionada_id === quotation.id
+          selected: item.quotation_comparisons?.[0]?.cotizacion_seleccionada_id === quotation.id,
+          accessories: quotation.quotation_accessories,
+          quotation_accessories: quotation.quotation_accessories
         })),
         comparison: item.quotation_comparisons?.[0] || undefined
       }));
