@@ -85,8 +85,8 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
     setIsViewDialogOpen(true);
   };
 
-  const handleMarginChange = (itemId: string, margin: number, basePrice: number, quantity: number) => {
-    const finalPrice = basePrice * quantity * (1 + margin / 100);
+  const handleMarginChange = (itemId: string, margin: number, adjustedUnitPrice: number, quantity: number) => {
+    const finalPrice = adjustedUnitPrice * quantity * (1 + margin / 100);
     
     if (!user?.id) return;
 
@@ -122,17 +122,8 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
     }
   };
 
-  const getBestPrice = (quotations: any[]) => {
-    if (quotations.length === 0) return 0;
-    return Math.min(...quotations.map(q => q.precio_unitario));
-  };
-
-  const getWorstPrice = (quotations: any[]) => {
-    if (quotations.length === 0) return 0;
-    return Math.max(...quotations.map(q => q.precio_unitario));
-  };
-
-  const calculateAccessoryPrice = (quotation: any) => {
+  // Calculate accessory price NOT included in proforma (per unit)
+  const calculateAccessoryPricePerUnit = (quotation: any) => {
     const accessories = quotation.accessories || quotation.quotation_accessories || [];
     
     return accessories
@@ -142,10 +133,27 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
       }, 0);
   };
 
-  const calculateTotalPrice = (quotation: any, quantity: number) => {
-    const basePrice = quotation.precio_unitario * quantity;
-    const accessoryPrice = calculateAccessoryPrice(quotation);
+  // Calculate adjusted unit price (base price + accessories not in proforma)
+  const calculateAdjustedUnitPrice = (quotation: any) => {
+    const basePrice = quotation.precio_unitario;
+    const accessoryPrice = calculateAccessoryPricePerUnit(quotation);
     return basePrice + accessoryPrice;
+  };
+
+  // Calculate total price (adjusted unit price * quantity)
+  const calculateTotalPrice = (quotation: any, quantity: number) => {
+    const adjustedUnitPrice = calculateAdjustedUnitPrice(quotation);
+    return adjustedUnitPrice * quantity;
+  };
+
+  const getBestPrice = (quotations: any[]) => {
+    if (quotations.length === 0) return 0;
+    return Math.min(...quotations.map(q => calculateAdjustedUnitPrice(q)));
+  };
+
+  const getWorstPrice = (quotations: any[]) => {
+    if (quotations.length === 0) return 0;
+    return Math.max(...quotations.map(q => calculateAdjustedUnitPrice(q)));
   };
 
   const getQuotationType = (quotation: any) => {
@@ -263,16 +271,17 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                               <th className="text-left py-2 px-3 text-sm font-medium">Proveedor</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Cotizador</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Tipo</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Precio Unit.</th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">Precio Unit. Base</th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">Precio Unit. Ajustado</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Total</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Accesorios</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Entrega</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Acciones</th>
                             </tr>
                           </thead>
                           <tbody>
                             {item.quotations.map((quotation) => {
-                              const accessoryPrice = calculateAccessoryPrice(quotation);
+                              const accessoryPricePerUnit = calculateAccessoryPricePerUnit(quotation);
+                              const adjustedUnitPrice = calculateAdjustedUnitPrice(quotation);
                               const totalPrice = calculateTotalPrice(quotation, item.cantidad);
                               
                               return (
@@ -311,32 +320,35 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                                     </Badge>
                                   </td>
                                   <td className="py-3 px-3">
-                                    <div className="flex items-center space-x-1">
-                                      <span className="text-sm font-medium">
+                                    <div className="text-sm">
+                                      <span className="font-medium">
                                         {quotation.moneda} {quotation.precio_unitario.toLocaleString()}
                                       </span>
-                                      {quotation.precio_unitario === bestPrice && (
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    <div className="flex items-center space-x-1">
+                                      <div className="text-sm">
+                                        <span className="font-bold text-blue-600">
+                                          {quotation.moneda} {adjustedUnitPrice.toLocaleString()}
+                                        </span>
+                                        {accessoryPricePerUnit > 0 && (
+                                          <p className="text-xs text-orange-600">
+                                            +{quotation.moneda} {accessoryPricePerUnit.toLocaleString()} accesorios
+                                          </p>
+                                        )}
+                                      </div>
+                                      {adjustedUnitPrice === bestPrice && (
                                         <TrendingDown className="w-4 h-4 text-green-600" />
                                       )}
-                                      {quotation.precio_unitario === worstPrice && item.quotations.length > 1 && (
+                                      {adjustedUnitPrice === worstPrice && item.quotations.length > 1 && (
                                         <TrendingUp className="w-4 h-4 text-red-600" />
                                       )}
                                     </div>
                                   </td>
                                   <td className="py-3 px-3">
-                                    <div className="text-sm font-bold text-blue-600">
+                                    <div className="text-sm font-bold text-green-600">
                                       {quotation.moneda} {totalPrice.toLocaleString()}
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-3">
-                                    <div className="text-sm">
-                                      {accessoryPrice > 0 ? (
-                                        <span className="text-orange-600 font-medium">
-                                          +{quotation.moneda} {accessoryPrice.toLocaleString()}
-                                        </span>
-                                      ) : (
-                                        <span className="text-green-600">Incluidos</span>
-                                      )}
                                     </div>
                                   </td>
                                   <td className="py-3 px-3 text-sm">{quotation.tiempo_entrega || '-'}</td>
@@ -370,7 +382,7 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                               onChange={(e) => handleMarginChange(
                                 item.id, 
                                 parseFloat(e.target.value) || 0,
-                                selectedQuotation.precio_unitario,
+                                calculateAdjustedUnitPrice(selectedQuotation),
                                 item.cantidad
                               )}
                               className="w-32"
@@ -378,7 +390,8 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                               max="100"
                             />
                             <div className="mt-2 text-sm text-gray-600">
-                              <p>Precio base total: {selectedQuotation.moneda} {(selectedQuotation.precio_unitario * item.cantidad).toLocaleString()}</p>
+                              <p>Precio unitario ajustado: {selectedQuotation.moneda} {calculateAdjustedUnitPrice(selectedQuotation).toLocaleString()}</p>
+                              <p>Precio base total: {selectedQuotation.moneda} {calculateTotalPrice(selectedQuotation, item.cantidad).toLocaleString()}</p>
                               {item.comparison?.precio_venta && (
                                 <p className="font-semibold">Precio final: {selectedQuotation.moneda} {item.comparison.precio_venta.toLocaleString()}</p>
                               )}
