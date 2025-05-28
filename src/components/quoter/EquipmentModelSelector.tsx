@@ -9,16 +9,17 @@ import { ArrowLeft, Package, Plus, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-interface HistoricalQuotation {
+interface SupplierEquipmentOption {
   id: string;
   marca: string;
   modelo: string;
   precio_unitario: number;
   moneda: string;
-  fecha_cotizacion: string;
-  proveedor: {
+  procedencia: string;
+  supplier: {
     razon_social: string;
   };
+  fecha_ultima_actualizacion: string;
 }
 
 interface EquipmentModelSelectorProps {
@@ -36,7 +37,7 @@ export const EquipmentModelSelector = ({
   onNewModel, 
   onBack 
 }: EquipmentModelSelectorProps) => {
-  const [historicalQuotations, setHistoricalQuotations] = useState<HistoricalQuotation[]>([]);
+  const [supplierEquipments, setSupplierEquipments] = useState<SupplierEquipmentOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewModelForm, setShowNewModelForm] = useState(false);
   const [newMarca, setNewMarca] = useState('');
@@ -45,99 +46,70 @@ export const EquipmentModelSelector = ({
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchHistoricalQuotations();
+    fetchSupplierEquipments();
   }, [item]);
 
-  const fetchHistoricalQuotations = async () => {
+  const fetchSupplierEquipments = async () => {
     try {
       setIsLoading(true);
-      console.log('Fetching historical quotations for equipment:', item?.master_equipment?.codigo);
+      console.log('Fetching supplier equipments for equipment:', item?.equipment_id);
 
-      // Buscar cotizaciones históricas basadas en el equipment_id del master_equipment
+      // Buscar equipos en el panel de proveedores basados en el equipment_id
       const { data, error } = await supabase
-        .from('quotations')
+        .from('supplier_equipments')
         .select(`
           id,
           marca,
           modelo,
           precio_unitario,
           moneda,
-          fecha_cotizacion,
-          suppliers!inner(razon_social),
-          project_items!inner(
-            master_equipment!inner(
-              codigo,
-              nombre_equipo
-            )
-          )
+          procedencia,
+          fecha_ultima_actualizacion,
+          suppliers!inner(razon_social)
         `)
-        .eq('project_items.equipment_id', item?.equipment_id)
+        .eq('equipment_id', item?.equipment_id)
+        .eq('activo', true)
         .not('marca', 'is', null)
         .not('modelo', 'is', null)
-        .order('fecha_cotizacion', { ascending: false });
+        .order('fecha_ultima_actualizacion', { ascending: false });
 
       if (error) {
-        console.error('Error fetching historical quotations:', error);
-        
-        // Intento alternativo: buscar por código de equipo
-        const { data: alternativeData, error: alternativeError } = await supabase
-          .from('quotations')
-          .select(`
-            id,
-            marca,
-            modelo,
-            precio_unitario,
-            moneda,
-            fecha_cotizacion,
-            suppliers!inner(razon_social)
-          `)
-          .not('marca', 'is', null)
-          .not('modelo', 'is', null)
-          .order('fecha_cotizacion', { ascending: false });
-
-        if (alternativeError) {
-          throw alternativeError;
-        }
-
-        console.log('Using alternative query, found quotations:', alternativeData?.length || 0);
-        
-        // Agrupar por marca y modelo únicos
-        const uniqueModels = new Map();
-        alternativeData?.forEach(quotation => {
-          const key = `${quotation.marca}-${quotation.modelo}`;
-          if (!uniqueModels.has(key)) {
-            uniqueModels.set(key, {
-              ...quotation,
-              proveedor: quotation.suppliers
-            });
-          }
-        });
-
-        setHistoricalQuotations(Array.from(uniqueModels.values()));
-        return;
+        console.error('Error fetching supplier equipments:', error);
+        throw error;
       }
 
-      console.log('Historical quotations found:', data?.length || 0);
+      console.log('Supplier equipments found:', data?.length || 0);
 
-      // Agrupar por marca y modelo únicos
+      // Transformar los datos para el componente
+      const transformedData = data?.map(equipment => ({
+        id: equipment.id,
+        marca: equipment.marca,
+        modelo: equipment.modelo,
+        precio_unitario: equipment.precio_unitario || 0,
+        moneda: equipment.moneda || 'USD',
+        procedencia: equipment.procedencia || '',
+        supplier: {
+          razon_social: equipment.suppliers.razon_social
+        },
+        fecha_ultima_actualizacion: equipment.fecha_ultima_actualizacion || ''
+      })) || [];
+
+      // Agrupar por marca y modelo únicos para evitar duplicados
       const uniqueModels = new Map();
-      data?.forEach(quotation => {
-        const key = `${quotation.marca}-${quotation.modelo}`;
+      transformedData.forEach(equipment => {
+        const key = `${equipment.marca}-${equipment.modelo}`;
         if (!uniqueModels.has(key)) {
-          uniqueModels.set(key, {
-            ...quotation,
-            proveedor: quotation.suppliers
-          });
+          uniqueModels.set(key, equipment);
         }
       });
 
-      setHistoricalQuotations(Array.from(uniqueModels.values()));
-      console.log('Unique historical models loaded:', uniqueModels.size);
+      setSupplierEquipments(Array.from(uniqueModels.values()));
+      console.log('Unique supplier equipment models loaded:', uniqueModels.size);
     } catch (error) {
-      console.error('Error loading historical quotations:', error);
+      console.error('Error loading supplier equipments:', error);
       toast({
         title: "Error",
-        description: "No se pudieron cargar las cotizaciones históricas",
+        description: "No se pudieron cargar los equipos del panel de proveedores",
         variant: "destructive",
       });
     } finally {
@@ -152,10 +124,11 @@ export const EquipmentModelSelector = ({
     }
   };
 
-  const filteredQuotations = historicalQuotations.filter(q =>
-    q.marca.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.modelo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.proveedor.razon_social.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredEquipments = supplierEquipments.filter(equipment =>
+    equipment.marca.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    equipment.modelo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    equipment.supplier.razon_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    equipment.procedencia.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (isLoading) {
@@ -164,7 +137,7 @@ export const EquipmentModelSelector = ({
         <CardContent className="p-6">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Cargando opciones históricas...</p>
+            <p className="mt-2 text-gray-600">Cargando opciones del panel de proveedores...</p>
           </div>
         </CardContent>
       </Card>
@@ -202,35 +175,38 @@ export const EquipmentModelSelector = ({
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <Input
-                placeholder="Buscar por marca, modelo o proveedor..."
+                placeholder="Buscar por marca, modelo, proveedor o procedencia..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
 
-            {/* Historical Options */}
-            {filteredQuotations.length > 0 && (
+            {/* Supplier Equipment Options */}
+            {filteredEquipments.length > 0 && (
               <div>
-                <h5 className="font-medium text-gray-900 mb-3">Opciones Históricas</h5>
+                <h5 className="font-medium text-gray-900 mb-3">Opciones Disponibles en Panel de Proveedores</h5>
                 <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {filteredQuotations.map((quotation) => (
+                  {filteredEquipments.map((equipment) => (
                     <div
-                      key={quotation.id}
+                      key={equipment.id}
                       className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => onModelSelect(quotation.marca, quotation.modelo)}
+                      onClick={() => onModelSelect(equipment.marca, equipment.modelo)}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="font-medium text-gray-900">
-                          {quotation.marca} - {quotation.modelo}
+                          {equipment.marca} - {equipment.modelo}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {quotation.precio_unitario} {quotation.moneda}
+                          {equipment.precio_unitario} {equipment.moneda}
                         </div>
                       </div>
                       <div className="text-sm text-gray-600">
-                        <p>Proveedor: {quotation.proveedor.razon_social}</p>
-                        <p>Última cotización: {new Date(quotation.fecha_cotizacion).toLocaleDateString()}</p>
+                        <p>Proveedor: {equipment.supplier.razon_social}</p>
+                        {equipment.procedencia && <p>Procedencia: {equipment.procedencia}</p>}
+                        {equipment.fecha_ultima_actualizacion && (
+                          <p>Última actualización: {new Date(equipment.fecha_ultima_actualizacion).toLocaleDateString()}</p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -238,12 +214,13 @@ export const EquipmentModelSelector = ({
               </div>
             )}
 
-            {/* Message when no historical data */}
-            {filteredQuotations.length === 0 && !showNewModelForm && (
+            {/* Message when no data found */}
+            {filteredEquipments.length === 0 && !showNewModelForm && (
               <div className="text-center py-6 text-gray-500">
                 <Package className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                <p>No se encontraron cotizaciones históricas para este equipo</p>
+                <p>No se encontraron equipos en el panel de proveedores</p>
                 <p className="text-sm">Código: {item?.master_equipment?.codigo}</p>
+                <p className="text-sm text-gray-400 mt-1">Agrega equipos al panel de proveedores o crea una nueva marca/modelo</p>
               </div>
             )}
 
