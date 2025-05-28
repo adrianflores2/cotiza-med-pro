@@ -1,4 +1,3 @@
-
 export type UserRole = 'coordinador' | 'cotizador' | 'comercial' | 'admin';
 export type ProjectStatus = 'pendiente' | 'en_proceso' | 'completado' | 'cancelado';
 export type QuotationStatus = 'vigente' | 'vencida' | 'seleccionada' | 'descartada';
@@ -158,4 +157,19 @@ export interface IndependentProforma {
   vigente: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface QuotationUpdateData {
+  id: string;
+  tipo_cotizacion?: 'nacional' | 'importado';
+  marca?: string;
+  modelo?: string;
+  procedencia?: string;
+  precio_unitario?: number;
+  moneda?: string;
+  tiempo_entrega?: string;
+  condiciones?: string;
+  incoterm?: string;
+  observaciones?: string;
+  fecha_vencimiento?: string;
 }

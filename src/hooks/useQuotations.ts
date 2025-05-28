@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +36,10 @@ interface QuotationData {
     descripcion?: string;
     obligatorio?: boolean;
   }>;
+}
+
+interface UpdateQuotationData extends Partial<QuotationData> {
+  id: string;
 }
 
 export const useQuotations = () => {
@@ -276,8 +279,90 @@ export const useQuotations = () => {
     },
   });
 
+  const updateQuotation = useMutation({
+    mutationFn: async (updateData: UpdateQuotationData) => {
+      console.log('Updating quotation with data:', updateData);
+      
+      const quotationId = updateData.id;
+      const { id, accessories, ...quotationFields } = updateData;
+
+      // Update the quotation
+      const { data: quotation, error: quotationError } = await supabase
+        .from('quotations')
+        .update(quotationFields)
+        .eq('id', quotationId)
+        .select()
+        .single();
+
+      if (quotationError) {
+        console.error('Error updating quotation:', quotationError);
+        throw new Error(`Error al actualizar cotización: ${quotationError.message}`);
+      }
+
+      // If accessories are provided, update them
+      if (accessories && accessories.length > 0) {
+        // First, delete existing accessories for this quotation
+        const { error: deleteAccessoriesError } = await supabase
+          .from('quotation_accessories')
+          .delete()
+          .eq('cotizacion_id', quotationId);
+
+        if (deleteAccessoriesError) {
+          console.error('Error deleting existing accessories:', deleteAccessoriesError);
+          throw new Error(`Error al eliminar accesorios existentes: ${deleteAccessoriesError.message}`);
+        }
+
+        // Then create new accessories
+        for (const acc of accessories) {
+          const { error: accessoryError } = await supabase
+            .from('quotation_accessories')
+            .insert({
+              cotizacion_id: quotationId,
+              nombre: acc.nombre,
+              cantidad: acc.cantidad,
+              precio_unitario: acc.precio_unitario,
+              moneda: acc.moneda,
+              incluido_en_proforma: acc.incluido_en_proforma,
+              observaciones: acc.descripcion,
+            });
+
+          if (accessoryError) {
+            console.error('Error creating quotation accessory:', accessoryError);
+            // Continue with other accessories even if one fails
+          }
+        }
+      }
+
+      console.log('Quotation updated successfully:', quotation);
+      return quotation;
+    },
+    onSuccess: () => {
+      toast({
+        title: "¡Cotización actualizada!",
+        description: "La cotización se ha actualizado correctamente.",
+      });
+      
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['item-assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-equipments'] });
+      queryClient.invalidateQueries({ queryKey: ['equipment-accessories'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+    onError: (error: Error) => {
+      console.error('Quotation update error:', error);
+      toast({
+        title: "Error al actualizar cotización",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     createQuotation: createQuotation.mutate,
+    updateQuotation: updateQuotation.mutate,
     isCreating: createQuotation.isPending,
+    isUpdating: updateQuotation.isPending,
   };
 };
