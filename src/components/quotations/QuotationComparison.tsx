@@ -29,6 +29,7 @@ import { useQuotationComparisons } from "@/hooks/useQuotationComparisons";
 import { useAuth } from "@/hooks/useAuth";
 import { QuotationViewDialog } from "./QuotationViewDialog";
 import { useProjects } from "@/hooks/useProjects";
+import { convertToPEN, formatPENPrice } from "@/utils/currencyConverter";
 
 interface QuotationComparisonProps {
   projectId?: string;
@@ -85,8 +86,8 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
     setIsViewDialogOpen(true);
   };
 
-  const handleMarginChange = (itemId: string, margin: number, adjustedUnitPrice: number, quantity: number) => {
-    const finalPrice = adjustedUnitPrice * quantity * (1 + margin / 100);
+  const handleMarginChange = (itemId: string, margin: number, adjustedUnitPricePEN: number, quantity: number) => {
+    const finalPricePEN = adjustedUnitPricePEN * quantity * (1 + margin / 100);
     
     if (!user?.id) return;
 
@@ -100,7 +101,7 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
         quotationId: selectedQuotation.id,
         comercialId: user.id,
         margenUtilidad: margin,
-        precioVenta: finalPrice,
+        precioVenta: finalPricePEN,
       });
     }
   };
@@ -122,38 +123,40 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
     }
   };
 
-  // Calculate accessory price NOT included in proforma (per unit)
-  const calculateAccessoryPricePerUnit = (quotation: any) => {
+  // Calculate accessory price NOT included in proforma (per unit) in PEN
+  const calculateAccessoryPricePerUnitPEN = (quotation: any) => {
     const accessories = quotation.accessories || quotation.quotation_accessories || [];
     
     return accessories
       .filter((acc: any) => !acc.incluido_en_proforma && acc.precio_unitario)
       .reduce((total: number, acc: any) => {
-        return total + (acc.precio_unitario * acc.cantidad);
+        const accessoryCurrency = acc.moneda || quotation.moneda || 'USD';
+        const accessoryPricePEN = convertToPEN(acc.precio_unitario, accessoryCurrency);
+        return total + (accessoryPricePEN * acc.cantidad);
       }, 0);
   };
 
-  // Calculate adjusted unit price (base price + accessories not in proforma)
-  const calculateAdjustedUnitPrice = (quotation: any) => {
-    const basePrice = quotation.precio_unitario;
-    const accessoryPrice = calculateAccessoryPricePerUnit(quotation);
-    return basePrice + accessoryPrice;
+  // Calculate adjusted unit price in PEN (base price + accessories not in proforma)
+  const calculateAdjustedUnitPricePEN = (quotation: any) => {
+    const basePricePEN = convertToPEN(quotation.precio_unitario, quotation.moneda);
+    const accessoryPricePEN = calculateAccessoryPricePerUnitPEN(quotation);
+    return basePricePEN + accessoryPricePEN;
   };
 
-  // Calculate total price (adjusted unit price * quantity)
-  const calculateTotalPrice = (quotation: any, quantity: number) => {
-    const adjustedUnitPrice = calculateAdjustedUnitPrice(quotation);
-    return adjustedUnitPrice * quantity;
+  // Calculate total price in PEN (adjusted unit price * quantity)
+  const calculateTotalPricePEN = (quotation: any, quantity: number) => {
+    const adjustedUnitPricePEN = calculateAdjustedUnitPricePEN(quotation);
+    return adjustedUnitPricePEN * quantity;
   };
 
-  const getBestPrice = (quotations: any[]) => {
+  const getBestPricePEN = (quotations: any[]) => {
     if (quotations.length === 0) return 0;
-    return Math.min(...quotations.map(q => calculateAdjustedUnitPrice(q)));
+    return Math.min(...quotations.map(q => calculateAdjustedUnitPricePEN(q)));
   };
 
-  const getWorstPrice = (quotations: any[]) => {
+  const getWorstPricePEN = (quotations: any[]) => {
     if (quotations.length === 0) return 0;
-    return Math.max(...quotations.map(q => calculateAdjustedUnitPrice(q)));
+    return Math.max(...quotations.map(q => calculateAdjustedUnitPricePEN(q)));
   };
 
   const getQuotationType = (quotation: any) => {
@@ -229,8 +232,8 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
       ) : (
         <div className="space-y-8">
           {filteredItems.map((item) => {
-            const bestPrice = getBestPrice(item.quotations);
-            const worstPrice = getWorstPrice(item.quotations);
+            const bestPricePEN = getBestPricePEN(item.quotations);
+            const worstPricePEN = getWorstPricePEN(item.quotations);
             const selectedQuotation = item.quotations.find(q => q.selected);
 
             return (
@@ -280,9 +283,10 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                           </thead>
                           <tbody>
                             {item.quotations.map((quotation) => {
-                              const accessoryPricePerUnit = calculateAccessoryPricePerUnit(quotation);
-                              const adjustedUnitPrice = calculateAdjustedUnitPrice(quotation);
-                              const totalPrice = calculateTotalPrice(quotation, item.cantidad);
+                              const accessoryPricePerUnitPEN = calculateAccessoryPricePerUnitPEN(quotation);
+                              const adjustedUnitPricePEN = calculateAdjustedUnitPricePEN(quotation);
+                              const totalPricePEN = calculateTotalPricePEN(quotation, item.cantidad);
+                              const basePricePEN = convertToPEN(quotation.precio_unitario, quotation.moneda);
                               
                               return (
                                 <tr 
@@ -322,7 +326,7 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                                   <td className="py-3 px-3">
                                     <div className="text-sm">
                                       <span className="font-medium">
-                                        {quotation.moneda} {quotation.precio_unitario.toLocaleString()}
+                                        {formatPENPrice(basePricePEN)}
                                       </span>
                                     </div>
                                   </td>
@@ -330,25 +334,25 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                                     <div className="flex items-center space-x-1">
                                       <div className="text-sm">
                                         <span className="font-bold text-blue-600">
-                                          {quotation.moneda} {adjustedUnitPrice.toLocaleString()}
+                                          {formatPENPrice(adjustedUnitPricePEN)}
                                         </span>
-                                        {accessoryPricePerUnit > 0 && (
+                                        {accessoryPricePerUnitPEN > 0 && (
                                           <p className="text-xs text-orange-600">
-                                            +{quotation.moneda} {accessoryPricePerUnit.toLocaleString()} accesorios
+                                            +{formatPENPrice(accessoryPricePerUnitPEN)} accesorios
                                           </p>
                                         )}
                                       </div>
-                                      {adjustedUnitPrice === bestPrice && (
+                                      {adjustedUnitPricePEN === bestPricePEN && (
                                         <TrendingDown className="w-4 h-4 text-green-600" />
                                       )}
-                                      {adjustedUnitPrice === worstPrice && item.quotations.length > 1 && (
+                                      {adjustedUnitPricePEN === worstPricePEN && item.quotations.length > 1 && (
                                         <TrendingUp className="w-4 h-4 text-red-600" />
                                       )}
                                     </div>
                                   </td>
                                   <td className="py-3 px-3">
                                     <div className="text-sm font-bold text-green-600">
-                                      {quotation.moneda} {totalPrice.toLocaleString()}
+                                      {formatPENPrice(totalPricePEN)}
                                     </div>
                                   </td>
                                   <td className="py-3 px-3 text-sm">{quotation.tiempo_entrega || '-'}</td>
@@ -382,7 +386,7 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                               onChange={(e) => handleMarginChange(
                                 item.id, 
                                 parseFloat(e.target.value) || 0,
-                                calculateAdjustedUnitPrice(selectedQuotation),
+                                calculateAdjustedUnitPricePEN(selectedQuotation),
                                 item.cantidad
                               )}
                               className="w-32"
@@ -390,10 +394,10 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                               max="100"
                             />
                             <div className="mt-2 text-sm text-gray-600">
-                              <p>Precio unitario ajustado: {selectedQuotation.moneda} {calculateAdjustedUnitPrice(selectedQuotation).toLocaleString()}</p>
-                              <p>Precio base total: {selectedQuotation.moneda} {calculateTotalPrice(selectedQuotation, item.cantidad).toLocaleString()}</p>
+                              <p>Precio unitario ajustado: {formatPENPrice(calculateAdjustedUnitPricePEN(selectedQuotation))}</p>
+                              <p>Precio base total: {formatPENPrice(calculateTotalPricePEN(selectedQuotation, item.cantidad))}</p>
                               {item.comparison?.precio_venta && (
-                                <p className="font-semibold">Precio final: {selectedQuotation.moneda} {item.comparison.precio_venta.toLocaleString()}</p>
+                                <p className="font-semibold">Precio final: {formatPENPrice(item.comparison.precio_venta)}</p>
                               )}
                             </div>
                           </div>
