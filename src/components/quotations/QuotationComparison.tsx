@@ -27,7 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQuotationComparisons } from "@/hooks/useQuotationComparisons";
 import { useAuth } from "@/hooks/useAuth";
-import { QuotationDetailsDialog } from "./QuotationDetailsDialog";
+import { QuotationViewDialog } from "./QuotationViewDialog";
 import { useProjects } from "@/hooks/useProjects";
 
 interface QuotationComparisonProps {
@@ -133,13 +133,23 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
   };
 
   const calculateAccessoryPrice = (quotation: any) => {
-    if (!quotation.accessories) return 0;
+    const accessories = quotation.accessories || quotation.quotation_accessories || [];
     
-    return quotation.accessories
+    return accessories
       .filter((acc: any) => !acc.incluido_en_proforma && acc.precio_unitario)
       .reduce((total: number, acc: any) => {
         return total + (acc.precio_unitario * acc.cantidad);
       }, 0);
+  };
+
+  const calculateTotalPrice = (quotation: any, quantity: number) => {
+    const basePrice = quotation.precio_unitario * quantity;
+    const accessoryPrice = calculateAccessoryPrice(quotation);
+    return basePrice + accessoryPrice;
+  };
+
+  const getQuotationType = (quotation: any) => {
+    return quotation.tipo_cotizacion === 'importado' ? 'Importado' : 'Nacional';
   };
 
   const handleExportExcel = () => {
@@ -252,22 +262,18 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                               <th className="text-left py-2 px-3 text-sm font-medium">Marca/Modelo</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Proveedor</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Cotizador</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Origen</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Precio</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">
-                                <div className="flex items-center space-x-1">
-                                  <Package className="w-3 h-3" />
-                                  <span>Accesorios</span>
-                                </div>
-                              </th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">Tipo</th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">Precio Unit.</th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">Total</th>
+                              <th className="text-left py-2 px-3 text-sm font-medium">Accesorios</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Entrega</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Fecha</th>
                               <th className="text-left py-2 px-3 text-sm font-medium">Acciones</th>
                             </tr>
                           </thead>
                           <tbody>
                             {item.quotations.map((quotation) => {
                               const accessoryPrice = calculateAccessoryPrice(quotation);
+                              const totalPrice = calculateTotalPrice(quotation, item.cantidad);
                               
                               return (
                                 <tr 
@@ -299,7 +305,11 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                                       <span>{quotation.cotizador?.nombre || 'No asignado'}</span>
                                     </div>
                                   </td>
-                                  <td className="py-3 px-3 text-sm">{quotation.procedencia || quotation.supplier.pais || '-'}</td>
+                                  <td className="py-3 px-3">
+                                    <Badge variant={quotation.tipo_cotizacion === 'importado' ? 'destructive' : 'default'} className="text-xs">
+                                      {getQuotationType(quotation)}
+                                    </Badge>
+                                  </td>
                                   <td className="py-3 px-3">
                                     <div className="flex items-center space-x-1">
                                       <span className="text-sm font-medium">
@@ -314,6 +324,11 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                                     </div>
                                   </td>
                                   <td className="py-3 px-3">
+                                    <div className="text-sm font-bold text-blue-600">
+                                      {quotation.moneda} {totalPrice.toLocaleString()}
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3">
                                     <div className="text-sm">
                                       {accessoryPrice > 0 ? (
                                         <span className="text-orange-600 font-medium">
@@ -325,7 +340,6 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
                                     </div>
                                   </td>
                                   <td className="py-3 px-3 text-sm">{quotation.tiempo_entrega || '-'}</td>
-                                  <td className="py-3 px-3 text-sm">{quotation.fecha_cotizacion}</td>
                                   <td className="py-3 px-3">
                                     <Button
                                       variant="outline"
@@ -401,14 +415,13 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
         </div>
       )}
 
-      <QuotationDetailsDialog
+      <QuotationViewDialog
         quotation={selectedQuotation}
         isOpen={isViewDialogOpen}
         onClose={() => {
           setIsViewDialogOpen(false);
           setSelectedQuotation(null);
         }}
-        showActions={false}
       />
     </div>
   );
