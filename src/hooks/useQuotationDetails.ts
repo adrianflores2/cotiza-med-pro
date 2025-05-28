@@ -16,6 +16,7 @@ export const useQuotationDetails = (quotationId: string) => {
             razon_social,
             ruc,
             pais,
+            tipo_proveedor,
             nombre_contacto,
             apellido_contacto,
             email_contacto,
@@ -23,6 +24,10 @@ export const useQuotationDetails = (quotationId: string) => {
           ),
           quotation_accessories (
             *
+          ),
+          users!quotations_cotizador_id_fkey (
+            nombre,
+            email
           )
         `)
         .eq('id', quotationId)
@@ -34,7 +39,16 @@ export const useQuotationDetails = (quotationId: string) => {
       }
 
       console.log('Fetched quotation details:', quotation);
-      return quotation;
+      
+      // Transform the data to match expected structure
+      const transformedQuotation = {
+        ...quotation,
+        supplier: quotation.suppliers,
+        cotizador: quotation.users,
+        accessories: quotation.quotation_accessories
+      };
+
+      return transformedQuotation;
     },
     enabled: !!quotationId,
   });

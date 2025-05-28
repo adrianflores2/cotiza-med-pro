@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -44,6 +43,7 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useQuotationManagement } from '@/hooks/useQuotationManagement';
+import { QuotationEditInlineForm } from './QuotationEditInlineForm';
 
 interface QuotationDetailsDialogProps {
   quotation: any;
@@ -67,6 +67,7 @@ export const QuotationDetailsDialog = ({
   onQuotationSelect
 }: QuotationDetailsDialogProps) => {
   const [accessories, setAccessories] = useState(quotation?.accessories || []);
+  const [isEditMode, setIsEditMode] = useState(false);
   const { deleteQuotation, isDeleting } = useQuotationManagement();
 
   if (!quotation) return null;
@@ -111,8 +112,65 @@ export const QuotationDetailsDialog = ({
     return `${currency} ${price.toLocaleString()}`;
   };
 
+  // Función para determinar el tipo de cotización correcto basado en la procedencia y tipo de proveedor
+  const getCorrectQuotationType = () => {
+    const supplier = quotation.supplier || quotation.suppliers;
+    const procedencia = quotation.procedencia?.toLowerCase();
+    const supplierCountry = supplier?.pais?.toLowerCase();
+    
+    // Si la procedencia es de Perú o el proveedor es nacional (de Perú), es nacional
+    if (procedencia === 'peru' || procedencia === 'perú' || 
+        supplierCountry === 'peru' || supplierCountry === 'perú' ||
+        supplier?.tipo_proveedor === 'nacional') {
+      return 'nacional';
+    }
+    
+    // Si la procedencia es de otro país o el proveedor es internacional, es importado
+    if (procedencia && procedencia !== 'peru' && procedencia !== 'perú') {
+      return 'importado';
+    }
+    
+    if (supplier?.tipo_proveedor === 'internacional') {
+      return 'importado';
+    }
+    
+    // Por defecto, usar el valor guardado en la cotización
+    return quotation.tipo_cotizacion || 'nacional';
+  };
+
+  const correctQuotationType = getCorrectQuotationType();
+
+  const handleEditSave = () => {
+    setIsEditMode(false);
+    // Trigger refresh of data
+    if (onEdit) {
+      onEdit();
+    }
+  };
+
   // Get accessories from quotation data
   const currentAccessories = quotation.accessories || quotation.quotation_accessories || [];
+
+  if (isEditMode) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Edit className="w-5 h-5" />
+              <span>Editar Cotización</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <QuotationEditInlineForm
+            quotation={quotation}
+            onCancel={() => setIsEditMode(false)}
+            onSave={handleEditSave}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -127,14 +185,17 @@ export const QuotationDetailsDialog = ({
               <Badge className={getStatusColor(quotation.estado)}>
                 {getStatusText(quotation.estado)}
               </Badge>
+              {correctQuotationType !== quotation.tipo_cotizacion && (
+                <Badge variant="outline" className="border-orange-300 text-orange-700">
+                  Tipo incorrecto
+                </Badge>
+              )}
               {showActions && (
                 <div className="flex space-x-2">
-                  {onEdit && (
-                    <Button variant="outline" size="sm" onClick={onEdit}>
-                      <Edit className="w-4 h-4 mr-2" />
-                      Editar
-                    </Button>
-                  )}
+                  <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Editar
+                  </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive" size="sm">
@@ -260,7 +321,14 @@ export const QuotationDetailsDialog = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Tipo:</span>
-                    <span className="font-medium">{quotation.tipo_cotizacion || 'Nacional'}</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium capitalize">{correctQuotationType}</span>
+                      {correctQuotationType !== quotation.tipo_cotizacion && (
+                        <Badge variant="outline" className="text-xs border-orange-300 text-orange-700">
+                          Era: {quotation.tipo_cotizacion}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

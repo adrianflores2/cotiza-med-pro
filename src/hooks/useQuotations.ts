@@ -1,3 +1,4 @@
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +43,31 @@ interface UpdateQuotationData extends Partial<QuotationData> {
   id: string;
 }
 
+// Helper function to determine correct quotation type
+const determineQuotationType = (procedencia?: string, supplierCountry?: string, supplierType?: string): 'nacional' | 'importado' => {
+  const procLower = procedencia?.toLowerCase();
+  const countryLower = supplierCountry?.toLowerCase();
+  
+  // If from Peru or supplier is national (from Peru), it's national
+  if (procLower === 'peru' || procLower === 'perú' || 
+      countryLower === 'peru' || countryLower === 'perú' ||
+      supplierType === 'nacional') {
+    return 'nacional';
+  }
+  
+  // If from another country or supplier is international, it's imported
+  if (procLower && procLower !== 'peru' && procLower !== 'perú') {
+    return 'importado';
+  }
+  
+  if (supplierType === 'internacional') {
+    return 'importado';
+  }
+  
+  // Default to national if unclear
+  return 'nacional';
+};
+
 export const useQuotations = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -68,6 +94,20 @@ export const useQuotations = () => {
       }
 
       console.log('Supplier ID:', supplierId);
+
+      // Get supplier info to determine correct quotation type
+      const { data: supplierInfo } = await supabase
+        .from('suppliers')
+        .select('pais, tipo_proveedor')
+        .eq('id', supplierId)
+        .single();
+
+      // Determine correct quotation type
+      const correctType = determineQuotationType(
+        quotationData.procedencia,
+        supplierInfo?.pais,
+        supplierInfo?.tipo_proveedor
+      );
 
       // Get equipment_id from the item
       const { data: itemData, error: itemError } = await supabase
@@ -147,13 +187,13 @@ export const useQuotations = () => {
         }
       }
 
-      // Create the quotation
+      // Create the quotation with the correct type
       const quotationInsert = {
         item_id: quotationData.item_id,
         cotizador_id: quotationData.cotizador_id,
         proveedor_id: supplierId,
         supplier_equipment_id: supplierEquipmentId,
-        tipo_cotizacion: quotationData.tipo_cotizacion,
+        tipo_cotizacion: correctType, // Use the determined correct type
         marca: quotationData.marca,
         modelo: quotationData.modelo,
         procedencia: quotationData.procedencia,
@@ -286,10 +326,38 @@ export const useQuotations = () => {
       const quotationId = updateData.id;
       const { id, accessories, ...quotationFields } = updateData;
 
+      // Get current quotation and supplier info to determine correct type
+      const { data: currentQuotation, error: fetchError } = await supabase
+        .from('quotations')
+        .select(`
+          *,
+          suppliers (pais, tipo_proveedor)
+        `)
+        .eq('id', quotationId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching current quotation:', fetchError);
+        throw new Error(`Error al obtener cotización actual: ${fetchError.message}`);
+      }
+
+      // Determine correct quotation type based on updated data
+      const correctType = determineQuotationType(
+        quotationFields.procedencia || currentQuotation.procedencia,
+        currentQuotation.suppliers?.pais,
+        currentQuotation.suppliers?.tipo_proveedor
+      );
+
+      // Update quotation fields with correct type
+      const finalQuotationFields = {
+        ...quotationFields,
+        tipo_cotizacion: correctType
+      };
+
       // Update the quotation
       const { data: quotation, error: quotationError } = await supabase
         .from('quotations')
-        .update(quotationFields)
+        .update(finalQuotationFields)
         .eq('id', quotationId)
         .select()
         .single();
@@ -300,7 +368,7 @@ export const useQuotations = () => {
       }
 
       // If accessories are provided, update them
-      if (accessories && accessories.length > 0) {
+      if (accessories && accessories.length >= 0) {
         // First, delete existing accessories for this quotation
         const { error: deleteAccessoriesError } = await supabase
           .from('quotation_accessories')
@@ -339,12 +407,13 @@ export const useQuotations = () => {
     onSuccess: () => {
       toast({
         title: "¡Cotización actualizada!",
-        description: "La cotización se ha actualizado correctamente.",
+        description: "La cotización se ha actualizado correctamente con el tipo corregido.",
       });
       
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['item-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      queryClient.invalidateQueries({ queryKey: ['quotation-details'] });
       queryClient.invalidateQueries({ queryKey: ['supplier-equipments'] });
       queryClient.invalidateQueries({ queryKey: ['equipment-accessories'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
