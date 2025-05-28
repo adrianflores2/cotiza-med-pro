@@ -2,7 +2,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useStandardizedAccessories } from "./useStandardizedAccessories";
 
 interface QuotationData {
   item_id: string;
@@ -43,7 +42,6 @@ interface QuotationData {
 export const useQuotations = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { createOrGetStandardizedAccessory } = useStandardizedAccessories();
 
   const createQuotation = useMutation({
     mutationFn: async (quotationData: QuotationData) => {
@@ -183,45 +181,73 @@ export const useQuotations = () => {
       if (quotationData.accessories && quotationData.accessories.length > 0) {
         console.log('Processing accessories:', quotationData.accessories.length);
         
-        // First, standardize each accessory in the equipment catalog
+        // Process each accessory: first standardize, then create quotation accessory
         for (const acc of quotationData.accessories) {
           try {
-            await new Promise((resolve, reject) => {
-              createOrGetStandardizedAccessory({
-                equipment_id: itemData.equipment_id,
+            // First, create or get standardized accessory
+            const { data: existingAccessory, error: checkAccessoryError } = await supabase
+              .from('equipment_accessories')
+              .select('id')
+              .eq('equipment_id', itemData.equipment_id)
+              .eq('nombre', acc.nombre)
+              .maybeSingle();
+
+            if (checkAccessoryError) {
+              console.error('Error checking existing accessory:', checkAccessoryError);
+              // Continue with other accessories even if one fails
+              continue;
+            }
+
+            if (!existingAccessory) {
+              // Create new standardized accessory
+              const { data: newAccessory, error: createAccessoryError } = await supabase
+                .from('equipment_accessories')
+                .insert({
+                  equipment_id: itemData.equipment_id,
+                  nombre: acc.nombre,
+                  descripcion: acc.descripcion,
+                  precio_referencial: acc.precio_unitario,
+                  moneda: acc.moneda || 'USD',
+                  obligatorio: acc.obligatorio || false,
+                  activo: true,
+                })
+                .select()
+                .single();
+
+              if (createAccessoryError) {
+                console.error('Error creating standardized accessory:', createAccessoryError);
+                // Continue with other accessories even if one fails
+              } else {
+                console.log('Created new standardized accessory:', newAccessory);
+              }
+            } else {
+              console.log('Using existing standardized accessory:', existingAccessory);
+            }
+
+            // Create quotation accessory regardless of standardization result
+            const { error: quotationAccessoryError } = await supabase
+              .from('quotation_accessories')
+              .insert({
+                cotizacion_id: quotation.id,
                 nombre: acc.nombre,
-                descripcion: acc.descripcion,
-                precio_referencial: acc.precio_unitario,
+                cantidad: acc.cantidad,
+                precio_unitario: acc.precio_unitario,
                 moneda: acc.moneda,
-                obligatorio: acc.obligatorio || false,
+                incluido_en_proforma: acc.incluido_en_proforma,
+                observaciones: acc.descripcion,
               });
-              // Note: We don't wait for the response here since it's handled by the mutation
-              resolve(null);
-            });
+
+            if (quotationAccessoryError) {
+              console.error('Error creating quotation accessory:', quotationAccessoryError);
+              // Continue with other accessories even if one fails
+            } else {
+              console.log('Created quotation accessory for:', acc.nombre);
+            }
+
           } catch (error) {
-            console.error('Error standardizing accessory:', acc.nombre, error);
+            console.error('Error processing accessory:', acc.nombre, error);
             // Continue with other accessories even if one fails
           }
-        }
-
-        // Then create quotation accessories
-        const accessoriesData = quotationData.accessories.map(acc => ({
-          cotizacion_id: quotation.id,
-          nombre: acc.nombre,
-          cantidad: acc.cantidad,
-          precio_unitario: acc.precio_unitario,
-          moneda: acc.moneda,
-          incluido_en_proforma: acc.incluido_en_proforma,
-          observaciones: acc.descripcion,
-        }));
-
-        const { error: accessoriesError } = await supabase
-          .from('quotation_accessories')
-          .insert(accessoriesData);
-
-        if (accessoriesError) {
-          console.error('Error creating accessories:', accessoriesError);
-          // Don't throw here, just log the error as the main quotation was created
         }
       }
 

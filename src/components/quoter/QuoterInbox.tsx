@@ -51,7 +51,7 @@ export const QuoterInbox = () => {
   const [availableQuotations, setAvailableQuotations] = useState<any[]>([]);
   const { assignments, isLoading } = useItemAssignments();
   const { user } = useAuth();
-  const { deleteQuotation } = useQuotationManagement();
+  const { deleteQuotation, isDeleting } = useQuotationManagement();
 
   console.log('QuoterInbox: User:', user?.email, 'Total assignments:', assignments.length);
 
@@ -156,6 +156,7 @@ export const QuoterInbox = () => {
       }
 
       console.log('Found quotations for item:', quotations?.length || 0);
+      console.log('Quotations data:', quotations);
 
       if (quotations && quotations.length > 0) {
         // Format quotations with proper structure
@@ -165,6 +166,8 @@ export const QuoterInbox = () => {
           cotizador: quotation.users,
           accessories: quotation.quotation_accessories
         }));
+
+        console.log('Formatted quotations:', formattedQuotations);
 
         setAvailableQuotations(formattedQuotations);
         // Show the first quotation by default
@@ -191,20 +194,27 @@ export const QuoterInbox = () => {
   };
 
   const handleDeleteQuotation = async (quotationId: string) => {
-    deleteQuotation(quotationId);
+    console.log('Attempting to delete quotation:', quotationId);
     
-    // Update the available quotations list
-    const updatedQuotations = availableQuotations.filter(q => q.id !== quotationId);
-    setAvailableQuotations(updatedQuotations);
-    
-    if (updatedQuotations.length === 0) {
-      setIsDetailsDialogOpen(false);
-      setSelectedQuotation(null);
-    } else {
-      setSelectedQuotation(updatedQuotations[0]);
+    try {
+      deleteQuotation(quotationId);
+      
+      // Update the available quotations list
+      const updatedQuotations = availableQuotations.filter(q => q.id !== quotationId);
+      setAvailableQuotations(updatedQuotations);
+      
+      if (updatedQuotations.length === 0) {
+        setIsDetailsDialogOpen(false);
+        setSelectedQuotation(null);
+      } else {
+        setSelectedQuotation(updatedQuotations[0]);
+      }
+      
+      console.log('Quotation deletion initiated successfully');
+      
+    } catch (error) {
+      console.error('Error in handleDeleteQuotation:', error);
     }
-    
-    // useItemAssignments hook will automatically update data through query invalidation
   };
 
   const handleQuotationSelection = (quotation: any) => {

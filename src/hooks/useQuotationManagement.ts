@@ -11,42 +11,51 @@ export const useQuotationManagement = () => {
     mutationFn: async (quotationId: string) => {
       console.log('Deleting quotation:', quotationId);
 
-      // First, remove any quotation comparisons that reference this quotation
-      const { error: comparisonError } = await supabase
-        .from('quotation_comparisons')
-        .delete()
-        .eq('cotizacion_seleccionada_id', quotationId);
+      try {
+        // First, remove any quotation comparisons that reference this quotation
+        const { error: comparisonError } = await supabase
+          .from('quotation_comparisons')
+          .delete()
+          .eq('cotizacion_seleccionada_id', quotationId);
 
-      if (comparisonError) {
-        console.error('Error deleting quotation comparisons:', comparisonError);
-        // Don't throw here as this might not exist
+        if (comparisonError) {
+          console.error('Error deleting quotation comparisons:', comparisonError);
+          // Don't throw here as this might not exist
+        }
+
+        // Then delete accessories associated with this quotation
+        const { error: accessoriesError } = await supabase
+          .from('quotation_accessories')
+          .delete()
+          .eq('cotizacion_id', quotationId);
+
+        if (accessoriesError) {
+          console.error('Error deleting quotation accessories:', accessoriesError);
+          throw new Error(`Error al eliminar accesorios: ${accessoriesError.message}`);
+        }
+
+        // Finally delete the quotation itself
+        const { error: quotationError } = await supabase
+          .from('quotations')
+          .delete()
+          .eq('id', quotationId);
+
+        if (quotationError) {
+          console.error('Error deleting quotation:', quotationError);
+          throw new Error(`Error al eliminar cotización: ${quotationError.message}`);
+        }
+
+        console.log('Quotation deleted successfully:', quotationId);
+        return quotationId;
+
+      } catch (error) {
+        console.error('Error in deleteQuotation:', error);
+        throw error;
       }
-
-      // Then delete accessories associated with this quotation
-      const { error: accessoriesError } = await supabase
-        .from('quotation_accessories')
-        .delete()
-        .eq('cotizacion_id', quotationId);
-
-      if (accessoriesError) {
-        console.error('Error deleting quotation accessories:', accessoriesError);
-        throw new Error(`Error al eliminar accesorios: ${accessoriesError.message}`);
-      }
-
-      // Finally delete the quotation itself
-      const { error: quotationError } = await supabase
-        .from('quotations')
-        .delete()
-        .eq('id', quotationId);
-
-      if (quotationError) {
-        console.error('Error deleting quotation:', quotationError);
-        throw new Error(`Error al eliminar cotización: ${quotationError.message}`);
-      }
-
-      return quotationId;
     },
-    onSuccess: () => {
+    onSuccess: (deletedQuotationId) => {
+      console.log('Quotation deletion successful, invalidating queries');
+      
       toast({
         title: "Cotización eliminada",
         description: "La cotización se ha eliminado correctamente",
@@ -61,6 +70,8 @@ export const useQuotationManagement = () => {
       
       // Force a fresh fetch of assignment data
       queryClient.refetchQueries({ queryKey: ['item-assignments'] });
+      
+      console.log('All queries invalidated after deletion');
     },
     onError: (error: Error) => {
       console.error('Quotation deletion error:', error);
