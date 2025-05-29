@@ -1,20 +1,12 @@
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { 
   Search, 
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  CheckCircle,
   AlertCircle,
-  Download,
-  Eye,
-  User,
-  Package
+  Download
 } from "lucide-react";
 import {
   Select,
@@ -23,13 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQuotationComparisons } from "@/hooks/useQuotationComparisons";
 import { useAuth } from "@/hooks/useAuth";
 import { QuotationViewDialog } from "./QuotationViewDialog";
+import { QuotationItemCard } from "./QuotationItemCard";
 import { useProjects } from "@/hooks/useProjects";
-import { convertToPEN, formatPENPrice } from "@/utils/currencyConverter";
 
 interface QuotationComparisonProps {
   projectId?: string;
@@ -123,46 +114,6 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
     }
   };
 
-  // Calculate accessory price NOT included in proforma (per unit) in PEN
-  const calculateAccessoryPricePerUnitPEN = (quotation: any) => {
-    const accessories = quotation.accessories || quotation.quotation_accessories || [];
-    
-    return accessories
-      .filter((acc: any) => !acc.incluido_en_proforma && acc.precio_unitario)
-      .reduce((total: number, acc: any) => {
-        const accessoryCurrency = acc.moneda || quotation.moneda || 'USD';
-        const accessoryPricePEN = convertToPEN(acc.precio_unitario, accessoryCurrency);
-        return total + (accessoryPricePEN * acc.cantidad);
-      }, 0);
-  };
-
-  // Calculate adjusted unit price in PEN (base price + accessories not in proforma)
-  const calculateAdjustedUnitPricePEN = (quotation: any) => {
-    const basePricePEN = convertToPEN(quotation.precio_unitario, quotation.moneda);
-    const accessoryPricePEN = calculateAccessoryPricePerUnitPEN(quotation);
-    return basePricePEN + accessoryPricePEN;
-  };
-
-  // Calculate total price in PEN (adjusted unit price * quantity)
-  const calculateTotalPricePEN = (quotation: any, quantity: number) => {
-    const adjustedUnitPricePEN = calculateAdjustedUnitPricePEN(quotation);
-    return adjustedUnitPricePEN * quantity;
-  };
-
-  const getBestPricePEN = (quotations: any[]) => {
-    if (quotations.length === 0) return 0;
-    return Math.min(...quotations.map(q => calculateAdjustedUnitPricePEN(q)));
-  };
-
-  const getWorstPricePEN = (quotations: any[]) => {
-    if (quotations.length === 0) return 0;
-    return Math.max(...quotations.map(q => calculateAdjustedUnitPricePEN(q)));
-  };
-
-  const getQuotationType = (quotation: any) => {
-    return quotation.tipo_cotizacion === 'importado' ? 'Importado' : 'Nacional';
-  };
-
   const handleExportExcel = () => {
     toast({
       title: "Exportando a Excel",
@@ -231,204 +182,17 @@ export const QuotationComparison = ({ projectId }: QuotationComparisonProps) => 
         </Card>
       ) : (
         <div className="space-y-8">
-          {filteredItems.map((item) => {
-            const bestPricePEN = getBestPricePEN(item.quotations);
-            const worstPricePEN = getWorstPricePEN(item.quotations);
-            const selectedQuotation = item.quotations.find(q => q.selected);
-
-            return (
-              <Card key={item.id} className="border-2">
-                <CardHeader className="bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg text-gray-900 mb-2">
-                        {item.equipment.nombre_equipo}
-                      </CardTitle>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <span>Código: {item.equipment.codigo}</span>
-                        <span>Ítem: #{item.numero_item}</span>
-                        <span>Cantidad: {item.cantidad}</span>
-                        <span>Proyecto: {item.project.nombre}</span>
-                      </div>
-                    </div>
-                    <Badge variant={selectedQuotation ? "default" : "secondary"}>
-                      {selectedQuotation ? "Cotización seleccionada" : "Pendiente selección"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="p-6">
-                  {item.quotations.length === 0 ? (
-                    <div className="text-center py-8">
-                      <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-600">No hay cotizaciones disponibles para este ítem</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="overflow-x-auto mb-6">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left py-2 px-3 text-sm font-medium">Seleccionar</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Marca/Modelo</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Proveedor</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Cotizador</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Tipo</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Precio Unit. Base</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Precio Unit. Ajustado</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Total</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Entrega</th>
-                              <th className="text-left py-2 px-3 text-sm font-medium">Acciones</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {item.quotations.map((quotation) => {
-                              const accessoryPricePerUnitPEN = calculateAccessoryPricePerUnitPEN(quotation);
-                              const adjustedUnitPricePEN = calculateAdjustedUnitPricePEN(quotation);
-                              const totalPricePEN = calculateTotalPricePEN(quotation, item.cantidad);
-                              const basePricePEN = convertToPEN(quotation.precio_unitario, quotation.moneda);
-                              
-                              return (
-                                <tr 
-                                  key={quotation.id} 
-                                  className={`border-b border-gray-100 hover:bg-gray-50 ${
-                                    quotation.selected ? 'bg-blue-50 border-blue-200' : ''
-                                  }`}
-                                >
-                                  <td className="py-3 px-3">
-                                    <input
-                                      type="radio"
-                                      name={`quotation-${item.id}`}
-                                      checked={quotation.selected || false}
-                                      onChange={() => handleQuotationSelection(item.id, quotation.id)}
-                                      className="w-4 h-4 text-blue-600"
-                                      disabled={isSelecting}
-                                    />
-                                  </td>
-                                  <td className="py-3 px-3">
-                                    <div>
-                                      <p className="font-medium text-sm">{quotation.marca}</p>
-                                      <p className="text-xs text-gray-500">{quotation.modelo}</p>
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-3 text-sm">{quotation.supplier.razon_social}</td>
-                                  <td className="py-3 px-3">
-                                    <div className="flex items-center space-x-1 text-sm">
-                                      <User className="w-3 h-3 text-gray-500" />
-                                      <span>{quotation.cotizador?.nombre || 'No asignado'}</span>
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-3">
-                                    <Badge variant={quotation.tipo_cotizacion === 'importado' ? 'destructive' : 'default'} className="text-xs">
-                                      {getQuotationType(quotation)}
-                                    </Badge>
-                                  </td>
-                                  <td className="py-3 px-3">
-                                    <div className="text-sm">
-                                      <span className="font-medium">
-                                        {formatPENPrice(basePricePEN)}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-3">
-                                    <div className="flex items-center space-x-1">
-                                      <div className="text-sm">
-                                        <span className="font-bold text-blue-600">
-                                          {formatPENPrice(adjustedUnitPricePEN)}
-                                        </span>
-                                        {accessoryPricePerUnitPEN > 0 && (
-                                          <p className="text-xs text-orange-600">
-                                            +{formatPENPrice(accessoryPricePerUnitPEN)} accesorios
-                                          </p>
-                                        )}
-                                      </div>
-                                      {adjustedUnitPricePEN === bestPricePEN && (
-                                        <TrendingDown className="w-4 h-4 text-green-600" />
-                                      )}
-                                      {adjustedUnitPricePEN === worstPricePEN && item.quotations.length > 1 && (
-                                        <TrendingUp className="w-4 h-4 text-red-600" />
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-3">
-                                    <div className="text-sm font-bold text-green-600">
-                                      {formatPENPrice(totalPricePEN)}
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-3 text-sm">{quotation.tiempo_entrega || '-'}</td>
-                                  <td className="py-3 px-3">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleViewQuotation(quotation)}
-                                      className="flex items-center space-x-1"
-                                    >
-                                      <Eye className="w-3 h-3" />
-                                      <span>Ver</span>
-                                    </Button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {selectedQuotation && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 bg-blue-50 rounded-lg">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Margen de utilidad (%)
-                            </label>
-                            <Input
-                              type="number"
-                              value={item.comparison?.margen_utilidad || 0}
-                              onChange={(e) => handleMarginChange(
-                                item.id, 
-                                parseFloat(e.target.value) || 0,
-                                calculateAdjustedUnitPricePEN(selectedQuotation),
-                                item.cantidad
-                              )}
-                              className="w-32"
-                              min="0"
-                              max="100"
-                            />
-                            <div className="mt-2 text-sm text-gray-600">
-                              <p>Precio unitario ajustado: {formatPENPrice(calculateAdjustedUnitPricePEN(selectedQuotation))}</p>
-                              <p>Precio base total: {formatPENPrice(calculateTotalPricePEN(selectedQuotation, item.cantidad))}</p>
-                              {item.comparison?.precio_venta && (
-                                <p className="font-semibold">Precio final: {formatPENPrice(item.comparison.precio_venta)}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Observaciones y justificación
-                            </label>
-                            <Textarea
-                              value={item.comparison?.justificacion || ''}
-                              onChange={(e) => handleObservationChange(item.id, e.target.value)}
-                              placeholder="Explica la razón de la selección..."
-                              rows={3}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {!selectedQuotation && (
-                        <div className="flex items-center space-x-2 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                          <AlertCircle className="w-5 h-5 text-orange-600" />
-                          <p className="text-sm text-orange-700">
-                            Selecciona una cotización para continuar con la configuración de precio final.
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+          {filteredItems.map((item) => (
+            <QuotationItemCard
+              key={item.id}
+              item={item}
+              isSelecting={isSelecting}
+              onQuotationSelection={handleQuotationSelection}
+              onViewQuotation={handleViewQuotation}
+              onMarginChange={handleMarginChange}
+              onObservationChange={handleObservationChange}
+            />
+          ))}
         </div>
       )}
 

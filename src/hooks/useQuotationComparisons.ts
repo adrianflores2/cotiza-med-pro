@@ -2,75 +2,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-export interface QuotationComparison {
-  id: string;
-  item_id: string;
-  cotizacion_seleccionada_id: string;
-  comercial_id: string;
-  margen_utilidad?: number;
-  precio_venta?: number;
-  justificacion?: string;
-  observaciones?: string;
-  fecha_seleccion: string;
-  created_at: string;
-}
-
-export interface ItemWithQuotations {
-  id: string;
-  numero_item: number;
-  cantidad: number;
-  observaciones?: string;
-  project: {
-    id: string;
-    nombre: string;
-  };
-  equipment: {
-    codigo: string;
-    nombre_equipo: string;
-  };
-  quotations: Array<{
-    id: string;
-    marca: string;
-    modelo: string;
-    precio_unitario: number;
-    moneda: string;
-    tiempo_entrega?: string;
-    condiciones?: string;
-    fecha_cotizacion: string;
-    estado: string;
-    tipo_cotizacion: string;
-    supplier: {
-      razon_social: string;
-      pais?: string;
-    };
-    cotizador?: {
-      nombre: string;
-      email: string;
-    };
-    procedencia?: string;
-    selected?: boolean;
-    accessories?: Array<{
-      id: string;
-      nombre: string;
-      cantidad: number;
-      precio_unitario?: number;
-      moneda?: string;
-      incluido_en_proforma: boolean;
-      observaciones?: string;
-    }>;
-    quotation_accessories?: Array<{
-      id: string;
-      nombre: string;
-      cantidad: number;
-      precio_unitario?: number;
-      moneda?: string;
-      incluido_en_proforma: boolean;
-      observaciones?: string;
-    }>;
-  }>;
-  comparison?: QuotationComparison;
-}
+import { 
+  QuotationComparison, 
+  ItemWithQuotations, 
+  SelectQuotationParams 
+} from '@/types/quotationComparison';
 
 export const useQuotationComparisons = (projectId?: string) => {
   const { toast } = useToast();
@@ -184,14 +120,7 @@ export const useQuotationComparisons = (projectId?: string) => {
       margenUtilidad,
       precioVenta,
       justificacion
-    }: {
-      itemId: string;
-      quotationId: string;
-      comercialId: string;
-      margenUtilidad?: number;
-      precioVenta?: number;
-      justificacion?: string;
-    }) => {
+    }: SelectQuotationParams) => {
       // Check if comparison already exists
       const { data: existing } = await supabase
         .from('quotation_comparisons')
