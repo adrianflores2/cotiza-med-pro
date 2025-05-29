@@ -1,27 +1,23 @@
+
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, DollarSign, Package, FileText, Wrench, Edit, Eye } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { useSupplierEquipments } from '@/hooks/useSupplierEquipments';
 import { useMasterEquipment } from '@/hooks/useMasterEquipment';
 import { useIndependentProformas } from '@/hooks/useIndependentProformas';
 import { SupplierForm } from './SupplierForm';
-import { EquipmentForm } from './EquipmentForm';
-import { ProformaForm } from './ProformaForm';
 import { PriceUpdateDialog } from './PriceUpdateDialog';
 import { SupplierEditDialog } from './SupplierEditDialog';
-import { EquipmentAccessoriesTab } from './EquipmentAccessoriesTab';
-import { IndependentProformasView } from './IndependentProformasView';
 import { EquipmentProformasDialog } from './EquipmentProformasDialog';
-import { EquipmentCatalogFilters, CatalogFilters } from './EquipmentCatalogFilters';
+import { CatalogFilters } from './EquipmentCatalogFilters';
 import { useAuth } from '@/hooks/useAuth';
+import { EquipmentCatalogTab } from './tabs/EquipmentCatalogTab';
+import { SuppliersManagementTab } from './tabs/SuppliersManagementTab';
+import { IndependentProformasTab } from './tabs/IndependentProformasTab';
+import { AccessoriesTab } from './tabs/AccessoriesTab';
 
 export const SupplierPanel = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<string>('');
@@ -42,17 +38,12 @@ export const SupplierPanel = () => {
   const { equipment: masterEquipment, isLoading: loadingMasterEquipment } = useMasterEquipment();
   const { proformas: allProformas, isLoading: loadingAllProformas } = useIndependentProformas();
 
-  console.log('SupplierPanel: suppliers:', suppliers?.length || 0);
-  console.log('SupplierPanel: masterEquipment:', masterEquipment?.length || 0);
-  console.log('SupplierPanel: loadingMasterEquipment:', loadingMasterEquipment);
-
   // Check if user can edit suppliers (coordinador or admin)
   const canEditSuppliers = userRole === 'coordinador' || userRole === 'admin';
 
   // Validate suppliers to prevent empty value SelectItems
   const validSuppliers = React.useMemo(() => {
     if (!Array.isArray(suppliers)) {
-      console.log('SupplierPanel: suppliers is not an array:', suppliers);
       return [];
     }
 
@@ -64,24 +55,11 @@ export const SupplierPanel = () => {
         supplier.id.trim() !== '' &&
         supplier.razon_social;
       
-      if (!isValid) {
-        console.log('SupplierPanel: Filtering out invalid supplier:', supplier);
-      }
-      
       return isValid;
     });
 
-    console.log('SupplierPanel: Valid suppliers filtered:', filtered.length, 'out of', suppliers.length);
     return filtered;
   }, [suppliers]);
-
-  const formatPrice = (price: number | null, currency: string = 'USD') => {
-    if (!price) return 'No definido';
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: currency,
-    }).format(price);
-  };
 
   // Validar si los datos están listos para mostrar formularios
   const isDataReady = !loadingMasterEquipment && masterEquipment && masterEquipment.length > 0;
@@ -131,335 +109,48 @@ export const SupplierPanel = () => {
         </TabsList>
 
         <TabsContent value="catalog" className="space-y-4">
-          {/* Filtros Avanzados */}
-          <EquipmentCatalogFilters
-            filters={catalogFilters}
+          <EquipmentCatalogTab
+            selectedSupplier={selectedSupplier}
+            onSupplierChange={setSelectedSupplier}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            catalogFilters={catalogFilters}
             onFiltersChange={setCatalogFilters}
-            availableGroups={availableGroups}
+            selectedEquipment={selectedEquipment}
+            onEquipmentSelect={setSelectedEquipment}
+            suppliers={validSuppliers}
+            equipments={equipments}
+            masterEquipment={masterEquipment}
             isLoading={loadingEquipments}
+            isDataReady={isDataReady}
+            availableGroups={availableGroups}
+            onViewProformas={handleViewProformas}
+            onPriceUpdate={setPriceUpdateEquipment}
           />
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Catálogo de Equipos por Proveedor
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-4">
-                <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Todos los proveedores" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {validSuppliers.map((supplier) => {
-                      console.log('SupplierPanel: Rendering SelectItem for supplier:', supplier.id);
-                      // Double check the value before rendering
-                      if (!supplier.id || typeof supplier.id !== 'string' || supplier.id.trim() === '') {
-                        console.warn('SupplierPanel: Skipping invalid supplier in render:', supplier);
-                        return null;
-                      }
-                      return (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.razon_social}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por código, nombre, marca o modelo..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                {selectedSupplier && (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button disabled={!isDataReady}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        {loadingMasterEquipment ? 'Cargando...' : 'Agregar Equipo'}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>Agregar Equipo al Proveedor</DialogTitle>
-                      </DialogHeader>
-                      {isDataReady ? (
-                        <EquipmentForm 
-                          supplierId={selectedSupplier}
-                          masterEquipment={masterEquipment}
-                        />
-                      ) : (
-                        <div className="text-center py-8">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                          <p className="mt-2 text-sm text-gray-600">Cargando equipos maestros...</p>
-                        </div>
-                      )}
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
-
-              {selectedEquipment && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="default">Equipo Seleccionado</Badge>
-                      <span className="text-sm font-medium">
-                        {masterEquipment?.find(eq => eq.id === selectedEquipment)?.nombre_equipo || 'Equipo desconocido'}
-                      </span>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedEquipment('')}
-                    >
-                      Deseleccionar
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Equipo</TableHead>
-                      <TableHead>Marca/Modelo</TableHead>
-                      <TableHead>Proveedor</TableHead>
-                      <TableHead>Precio Actual</TableHead>
-                      <TableHead>Precio Anterior</TableHead>
-                      <TableHead>Grupo</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loadingEquipments ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-4">
-                          Cargando equipos...
-                        </TableCell>
-                      </TableRow>
-                    ) : equipments.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-4">
-                          No se encontraron equipos con los filtros aplicados
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      equipments.map((equipment) => (
-                        <TableRow 
-                          key={equipment.id}
-                          className={selectedEquipment === equipment.equipment_id ? 'bg-blue-50' : ''}
-                        >
-                          <TableCell className="font-mono">
-                            {equipment.master_equipment?.codigo}
-                          </TableCell>
-                          <TableCell>{equipment.master_equipment?.nombre_equipo}</TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{equipment.marca}</div>
-                              <div className="text-sm text-muted-foreground">{equipment.modelo}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{equipment.suppliers?.razon_social}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">
-                                {formatPrice(equipment.precio_unitario, equipment.moneda)}
-                              </Badge>
-                              {equipment.fecha_ultima_actualizacion && (
-                                <div className="text-xs text-muted-foreground">
-                                  {new Date(equipment.fecha_ultima_actualizacion).toLocaleDateString()}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {equipment.precio_anterior ? (
-                              <Badge variant="secondary">
-                                {formatPrice(equipment.precio_anterior, equipment.moneda)}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {equipment.master_equipment?.grupo_generico}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleViewProformas(equipment.equipment_id)}
-                                title="Ver proformas"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => setPriceUpdateEquipment(equipment)}
-                                title="Actualizar precio"
-                              >
-                                <DollarSign className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => setSelectedEquipment(equipment.equipment_id)}
-                                title="Ver accesorios"
-                              >
-                                <Wrench className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="suppliers" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Listado de Proveedores</CardTitle>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nuevo Proveedor
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Crear Nuevo Proveedor</DialogTitle>
-                    </DialogHeader>
-                    <SupplierForm />
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loadingSuppliers ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Cargando proveedores...</p>
-                </div>
-              ) : validSuppliers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No hay proveedores registrados</p>
-                  <p className="text-sm text-gray-400 mt-2">Crea tu primer proveedor usando el botón de arriba</p>
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {validSuppliers.map((supplier) => (
-                    <Card key={supplier.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-semibold">{supplier.razon_social}</h3>
-                            {canEditSuppliers && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingSupplier(supplier)}
-                                title="Editar proveedor"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">RUC: {supplier.ruc}</p>
-                          {supplier.pais && (
-                            <p className="text-sm text-muted-foreground">País: {supplier.pais}</p>
-                          )}
-                          {supplier.email_contacto && (
-                            <p className="text-sm text-muted-foreground">{supplier.email_contacto}</p>
-                          )}
-                          {supplier.telefono_contacto && (
-                            <p className="text-sm text-muted-foreground">Tel: {supplier.telefono_contacto}</p>
-                          )}
-                          <div className="flex items-center justify-between pt-2">
-                            <Badge variant="outline">
-                              {supplier.nombre_contacto ? 
-                                `${supplier.nombre_contacto} ${supplier.apellido_contacto || ''}`.trim() : 
-                                'Sin contacto'
-                              }
-                            </Badge>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <SuppliersManagementTab
+            suppliers={validSuppliers}
+            isLoading={loadingSuppliers}
+            canEditSuppliers={canEditSuppliers}
+            onEditSupplier={setEditingSupplier}
+          />
         </TabsContent>
 
         <TabsContent value="proformas" className="space-y-4">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-xl font-semibold">Proformas Independientes</h2>
-              <p className="text-muted-foreground">
-                Gestiona proformas no ligadas a proyectos específicos
-              </p>
-            </div>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button disabled={loadingEquipments}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  {loadingEquipments ? 'Cargando...' : 'Nueva Proforma'}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Crear Proforma Independiente</DialogTitle>
-                </DialogHeader>
-                <ProformaForm />
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <IndependentProformasView 
-            proformas={allProformas} 
-            isLoading={loadingAllProformas} 
+          <IndependentProformasTab
+            proformas={allProformas}
+            isLoading={loadingAllProformas}
+            isEquipmentsLoading={loadingEquipments}
           />
         </TabsContent>
 
         <TabsContent value="accessories" className="space-y-4">
-          {selectedEquipment ? (
-            <EquipmentAccessoriesTab 
-              equipmentId={selectedEquipment}
-              equipmentName={masterEquipment?.find(eq => eq.id === selectedEquipment)?.nombre_equipo || 'Equipo seleccionado'}
-            />
-          ) : (
-            <Card>
-              <CardContent className="text-center py-8">
-                <Wrench className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">Selecciona un equipo para ver sus accesorios</p>
-                <p className="text-sm text-gray-400 mt-2">Puedes seleccionar un equipo desde la pestaña "Catálogo de Equipos"</p>
-              </CardContent>
-            </Card>
-          )}
+          <AccessoriesTab
+            selectedEquipment={selectedEquipment}
+            equipmentName={masterEquipment?.find(eq => eq.id === selectedEquipment)?.nombre_equipo}
+          />
         </TabsContent>
       </Tabs>
 
