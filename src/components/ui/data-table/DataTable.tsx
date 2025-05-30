@@ -2,6 +2,7 @@
 import React from "react";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { LoadingState } from "../states/LoadingState";
 import { EmptyState } from "../states/EmptyState";
@@ -52,6 +53,8 @@ export function DataTable<T>({
   onRowSelect,
   className = ""
 }: DataTableProps<T>) {
+  const headerCheckboxRef = React.useRef<HTMLButtonElement>(null);
+
   const getRowKey = React.useCallback((item: T): string => {
     if (typeof rowKey === 'function') {
       return rowKey(item);
@@ -75,6 +78,37 @@ export function DataTable<T>({
     return '';
   }, []);
 
+  const isAllSelected = React.useMemo(() => {
+    return data.length > 0 && data.every(item => selectedRows?.has(getRowKey(item)));
+  }, [data, selectedRows, getRowKey]);
+
+  const isSomeSelected = React.useMemo(() => {
+    return data.some(item => selectedRows?.has(getRowKey(item)));
+  }, [data, selectedRows, getRowKey]);
+
+  const isIndeterminate = React.useMemo(() => {
+    return isSomeSelected && !isAllSelected;
+  }, [isSomeSelected, isAllSelected]);
+
+  // Set indeterminate state on the checkbox using ref effect
+  React.useEffect(() => {
+    if (headerCheckboxRef.current) {
+      const checkboxElement = headerCheckboxRef.current.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      if (checkboxElement) {
+        checkboxElement.indeterminate = isIndeterminate;
+      }
+    }
+  }, [isIndeterminate]);
+
+  const handleSelectAll = React.useCallback((checked: boolean) => {
+    if (onRowSelect) {
+      data.forEach(item => {
+        const key = getRowKey(item);
+        onRowSelect(key, checked);
+      });
+    }
+  }, [data, getRowKey, onRowSelect]);
+
   if (isLoading) {
     return <LoadingState message="Cargando datos..." />;
   }
@@ -91,17 +125,10 @@ export function DataTable<T>({
             <TableRow>
               {selectedRows && onRowSelect && (
                 <TableHead className="w-12">
-                  <input
-                    type="checkbox"
-                    className="rounded"
-                    onChange={(e) => {
-                      data.forEach(item => {
-                        const key = getRowKey(item);
-                        onRowSelect(key, e.target.checked);
-                      });
-                    }}
-                    checked={data.length > 0 && data.every(item => selectedRows.has(getRowKey(item)))}
-                    indeterminate={data.some(item => selectedRows.has(getRowKey(item))) && !data.every(item => selectedRows.has(getRowKey(item)))}
+                  <Checkbox
+                    ref={headerCheckboxRef}
+                    checked={isAllSelected}
+                    onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
               )}
@@ -139,14 +166,12 @@ export function DataTable<T>({
                 >
                   {selectedRows && onRowSelect && (
                     <td className="py-3 px-4">
-                      <input
-                        type="checkbox"
-                        className="rounded"
+                      <Checkbox
                         checked={isSelected}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          onRowSelect(key, e.target.checked);
+                        onCheckedChange={(checked) => {
+                          onRowSelect(key, checked as boolean);
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       />
                     </td>
                   )}
