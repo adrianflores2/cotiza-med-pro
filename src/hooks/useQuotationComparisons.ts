@@ -110,7 +110,7 @@ export const useQuotationComparisons = (projectId?: string) => {
       return transformedData;
     },
     enabled: true,
-    staleTime: 30000, // 30 seconds
+    staleTime: 60000, // 1 minute - increased to reduce unnecessary refetches
     refetchOnWindowFocus: false
   });
 
@@ -123,6 +123,8 @@ export const useQuotationComparisons = (projectId?: string) => {
       precioVenta,
       justificacion
     }: SelectQuotationParams) => {
+      console.log('Selecting quotation:', { itemId, quotationId });
+      
       // Check if comparison already exists
       const { data: existing } = await supabase
         .from('quotation_comparisons')
@@ -168,6 +170,8 @@ export const useQuotationComparisons = (projectId?: string) => {
       }
     },
     onMutate: async ({ itemId, quotationId }) => {
+      console.log('Optimistic update: selecting quotation', { itemId, quotationId });
+      
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['items-with-quotations'] });
 
@@ -185,7 +189,11 @@ export const useQuotationComparisons = (projectId?: string) => {
               quotations: item.quotations.map(q => ({
                 ...q,
                 selected: q.id === quotationId
-              }))
+              })),
+              comparison: {
+                ...item.comparison,
+                cotizacion_seleccionada_id: quotationId
+              } as any
             };
           }
           return item;
@@ -195,28 +203,46 @@ export const useQuotationComparisons = (projectId?: string) => {
       return { previousData };
     },
     onError: (error, variables, context) => {
+      console.error('Error selecting quotation:', error);
+      
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousData) {
         queryClient.setQueryData(['items-with-quotations', projectId], context.previousData);
       }
       
-      console.error('Error selecting quotation:', error);
       toast({
         title: "Error",
         description: "No se pudo seleccionar la cotización",
         variant: "destructive",
       });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      console.log('Quotation selection successful:', data);
+      
       toast({
         title: "Cotización seleccionada",
         description: "La cotización se ha seleccionado correctamente",
       });
-    },
-    onSettled: () => {
-      // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: ['items-with-quotations', projectId] });
-    },
+      
+      // Update the specific item's data without invalidating the entire query
+      queryClient.setQueryData(['items-with-quotations', projectId], (old: ItemWithQuotations[] | undefined) => {
+        if (!old) return old;
+        
+        return old.map(item => {
+          if (item.id === variables.itemId) {
+            return {
+              ...item,
+              quotations: item.quotations.map(q => ({
+                ...q,
+                selected: q.id === variables.quotationId
+              })),
+              comparison: data
+            };
+          }
+          return item;
+        });
+      });
+    }
   });
 
   return {
