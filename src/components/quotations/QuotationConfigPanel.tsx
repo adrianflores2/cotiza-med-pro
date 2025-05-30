@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPENPrice } from "@/utils/currencyConverter";
 import { calculateQuotationPrices } from "@/utils/quotationPriceCalculator";
+import { useCallback, useState, useEffect } from "react";
 
 interface QuotationConfigPanelProps {
   selectedQuotation: any;
@@ -18,6 +19,51 @@ export const QuotationConfigPanel = ({
   onObservationChange
 }: QuotationConfigPanelProps) => {
   const { adjustedUnitPricePEN, totalPricePEN } = calculateQuotationPrices(selectedQuotation, item.cantidad);
+  const [localMargin, setLocalMargin] = useState(item.comparison?.margen_utilidad || 0);
+  const [localJustification, setLocalJustification] = useState(item.comparison?.justificacion || '');
+
+  // Update local state when item comparison changes
+  useEffect(() => {
+    setLocalMargin(item.comparison?.margen_utilidad || 0);
+    setLocalJustification(item.comparison?.justificacion || '');
+  }, [item.comparison?.margen_utilidad, item.comparison?.justificacion]);
+
+  // Debounced handlers to avoid excessive API calls
+  const debouncedMarginChange = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (margin: number) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          onMarginChange(item.id, margin, adjustedUnitPricePEN, item.cantidad);
+        }, 500); // 500ms delay
+      };
+    })(),
+    [item.id, adjustedUnitPricePEN, item.cantidad, onMarginChange]
+  );
+
+  const debouncedJustificationChange = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (justificacion: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          onObservationChange(item.id, justificacion);
+        }, 1000); // 1 second delay for text
+      };
+    })(),
+    [item.id, onObservationChange]
+  );
+
+  const handleMarginChange = (margin: number) => {
+    setLocalMargin(margin);
+    debouncedMarginChange(margin);
+  };
+
+  const handleJustificationChange = (justificacion: string) => {
+    setLocalJustification(justificacion);
+    debouncedJustificationChange(justificacion);
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 bg-blue-50 rounded-lg">
@@ -27,13 +73,8 @@ export const QuotationConfigPanel = ({
         </label>
         <Input
           type="number"
-          value={item.comparison?.margen_utilidad || 0}
-          onChange={(e) => onMarginChange(
-            item.id, 
-            parseFloat(e.target.value) || 0,
-            adjustedUnitPricePEN,
-            item.cantidad
-          )}
+          value={localMargin}
+          onChange={(e) => handleMarginChange(parseFloat(e.target.value) || 0)}
           className="w-32"
           min="0"
           max="100"
@@ -51,8 +92,8 @@ export const QuotationConfigPanel = ({
           Observaciones y justificación
         </label>
         <Textarea
-          value={item.comparison?.justificacion || ''}
-          onChange={(e) => onObservationChange(item.id, e.target.value)}
+          value={localJustification}
+          onChange={(e) => handleJustificationChange(e.target.value)}
           placeholder="Explica la razón de la selección..."
           rows={3}
         />

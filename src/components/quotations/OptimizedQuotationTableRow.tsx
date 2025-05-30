@@ -50,11 +50,19 @@ export const OptimizedQuotationTableRow = React.memo(({
     onView(quotation);
   }, [quotation, onView]);
 
-  const handleDelete = React.useCallback(() => {
+  const handleDelete = React.useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onDelete) {
-      onDelete(quotation.id);
+      const confirmed = window.confirm(
+        `¿Estás seguro de que quieres eliminar la cotización de ${quotation.marca} ${quotation.modelo}?\n\n` +
+        `Esta acción no se puede deshacer.${isSelected ? '\n\nNota: Esta cotización está seleccionada y se removerá la selección.' : ''}`
+      );
+      
+      if (confirmed) {
+        onDelete(quotation.id);
+      }
     }
-  }, [quotation.id, onDelete]);
+  }, [quotation.id, quotation.marca, quotation.modelo, isSelected, onDelete]);
 
   const isBestPrice = adjustedUnitPricePEN === bestPricePEN;
   const isWorstPrice = adjustedUnitPricePEN === worstPricePEN && totalQuotations > 1;
@@ -154,6 +162,7 @@ export const OptimizedQuotationTableRow = React.memo(({
               onClick={handleDelete}
               disabled={isDeleting}
               className="flex items-center space-x-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+              title={`Eliminar cotización de ${quotation.marca} ${quotation.modelo}`}
             >
               <Trash2 className="w-3 h-3" />
             </Button>

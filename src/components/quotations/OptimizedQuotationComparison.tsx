@@ -22,6 +22,9 @@ import { OptimizedQuotationItemCard } from "./OptimizedQuotationItemCard";
 import { useProjects } from "@/hooks/useProjects";
 import { LoadingState } from "@/components/ui/states/LoadingState";
 import { EmptyState } from "@/components/ui/states/EmptyState";
+import * as XLSX from 'xlsx';
+import { formatPENPrice } from "@/utils/currencyConverter";
+import { calculateQuotationPrices } from "@/utils/quotationPriceCalculator";
 
 interface OptimizedQuotationComparisonProps {
   projectId?: string;
@@ -40,7 +43,9 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
     itemsWithQuotations,
     isLoading,
     selectQuotation,
-    isSelecting
+    updateComparison,
+    isSelecting,
+    isUpdating
   } = useQuotationComparisons(selectedProjectId !== "all" ? selectedProjectId : undefined);
 
   // Update selectedProjectId when projectId prop changes
@@ -84,46 +89,112 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
   const handleMarginChange = React.useCallback((itemId: string, margin: number, adjustedUnitPricePEN: number, quantity: number) => {
     const finalPricePEN = adjustedUnitPricePEN * quantity * (1 + margin / 100);
     
-    if (!user?.id) return;
-
-    const selectedQuotation = filteredItems
-      .find(item => item.id === itemId)
-      ?.quotations.find(q => q.selected);
-
-    if (selectedQuotation) {
-      selectQuotation({
-        itemId,
-        quotationId: selectedQuotation.id,
-        comercialId: user.id,
-        margenUtilidad: margin,
-        precioVenta: finalPricePEN,
-      });
-    }
-  }, [user?.id, filteredItems, selectQuotation]);
+    updateComparison({
+      itemId,
+      margenUtilidad: margin,
+      precioVenta: finalPricePEN,
+    });
+  }, [updateComparison]);
 
   const handleObservationChange = React.useCallback((itemId: string, justificacion: string) => {
-    if (!user?.id) return;
-
-    const selectedQuotation = filteredItems
-      .find(item => item.id === itemId)
-      ?.quotations.find(q => q.selected);
-
-    if (selectedQuotation) {
-      selectQuotation({
-        itemId,
-        quotationId: selectedQuotation.id,
-        comercialId: user.id,
-        justificacion,
-      });
-    }
-  }, [user?.id, filteredItems, selectQuotation]);
+    updateComparison({
+      itemId,
+      justificacion,
+    });
+  }, [updateComparison]);
 
   const handleExportExcel = React.useCallback(() => {
-    toast({
-      title: "Exportando a Excel",
-      description: "El archivo está siendo preparado para descarga...",
-    });
-  }, [toast]);
+    try {
+      // Prepare data for Excel export
+      const exportData = filteredItems
+        .filter(item => item.quotations.length > 0)
+        .map(item => {
+          const selectedQuotation = item.quotations.find(q => q.selected);
+          const allQuotations = item.quotations.map(q => {
+            const prices = calculateQuotationPrices(q, item.cantidad);
+            return {
+              marca: q.marca,
+              modelo: q.modelo,
+              proveedor: q.supplier.razon_social,
+              precio_unitario: formatPENPrice(prices.basePricePEN),
+              precio_ajustado: formatPENPrice(prices.adjustedUnitPricePEN),
+              total: formatPENPrice(prices.totalPricePEN),
+              seleccionada: q.selected ? 'SÍ' : 'NO'
+            };
+          });
+
+          const baseRow = {
+            proyecto: item.project.nombre,
+            codigo_equipo: item.equipment.codigo,
+            nombre_equipo: item.equipment.nombre_equipo,
+            numero_item: item.numero_item,
+            cantidad: item.cantidad,
+            cotizacion_seleccionada: selectedQuotation ? `${selectedQuotation.marca} ${selectedQuotation.modelo}` : 'Ninguna',
+            proveedor_seleccionado: selectedQuotation?.supplier.razon_social || '',
+            margen_utilidad: item.comparison?.margen_utilidad || 0,
+            precio_venta: item.comparison?.precio_venta ? formatPENPrice(item.comparison.precio_venta) : '',
+            justificacion: item.comparison?.justificacion || '',
+            total_cotizaciones: item.quotations.length
+          };
+
+          return baseRow;
+        });
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Create main summary sheet
+      const ws1 = XLSX.utils.json_to_sheet(exportData);
+      XLSX.utils.book_append_sheet(wb, ws1, "Resumen Comparaciones");
+
+      // Create detailed quotations sheet
+      const detailedData = filteredItems.flatMap(item => 
+        item.quotations.map(q => {
+          const prices = calculateQuotationPrices(q, item.cantidad);
+          return {
+            proyecto: item.project.nombre,
+            codigo_equipo: item.equipment.codigo,
+            nombre_equipo: item.equipment.nombre_equipo,
+            numero_item: item.numero_item,
+            cantidad: item.cantidad,
+            marca: q.marca,
+            modelo: q.modelo,
+            proveedor: q.supplier.razon_social,
+            cotizador: q.cotizador?.nombre || 'No asignado',
+            tipo: q.tipo_cotizacion,
+            precio_unitario_base: formatPENPrice(prices.basePricePEN),
+            precio_unitario_ajustado: formatPENPrice(prices.adjustedUnitPricePEN),
+            precio_total: formatPENPrice(prices.totalPricePEN),
+            tiempo_entrega: q.tiempo_entrega || '',
+            seleccionada: q.selected ? 'SÍ' : 'NO'
+          };
+        })
+      );
+
+      const ws2 = XLSX.utils.json_to_sheet(detailedData);
+      XLSX.utils.book_append_sheet(wb, ws2, "Detalle Cotizaciones");
+
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      const projectName = selectedProjectId !== "all" ? projects.find(p => p.id === selectedProjectId)?.nombre || "Todos" : "Todos";
+      const filename = `Comparacion_Cotizaciones_${projectName}_${currentDate}.xlsx`;
+
+      // Save file
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Exportación completada",
+        description: `El archivo ${filename} ha sido descargado exitosamente`,
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast({
+        title: "Error en la exportación",
+        description: "No se pudo generar el archivo Excel",
+        variant: "destructive",
+      });
+    }
+  }, [filteredItems, selectedProjectId, projects, toast]);
 
   if (isLoading) {
     return <LoadingState message="Cargando comparaciones..." />;
@@ -183,7 +254,7 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
             <OptimizedQuotationItemCard
               key={item.id}
               item={item}
-              isSelecting={isSelecting}
+              isSelecting={isSelecting || isUpdating}
               onQuotationSelection={handleQuotationSelection}
               onViewQuotation={handleViewQuotation}
               onMarginChange={handleMarginChange}
