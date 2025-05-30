@@ -12,18 +12,28 @@ export const useQuotationManagement = () => {
       console.log('Deleting quotation:', quotationId);
 
       try {
-        // First, remove any quotation comparisons that reference this quotation
-        const { error: comparisonError } = await supabase
+        // First, check if this quotation is selected in any comparison
+        const { data: comparison } = await supabase
           .from('quotation_comparisons')
-          .delete()
-          .eq('cotizacion_seleccionada_id', quotationId);
+          .select('id, item_id')
+          .eq('cotizacion_seleccionada_id', quotationId)
+          .single();
 
-        if (comparisonError) {
-          console.error('Error deleting quotation comparisons:', comparisonError);
-          // Don't throw here as this might not exist
+        // If this quotation is selected, remove the comparison
+        if (comparison) {
+          const { error: comparisonError } = await supabase
+            .from('quotation_comparisons')
+            .delete()
+            .eq('id', comparison.id);
+
+          if (comparisonError) {
+            console.error('Error deleting quotation comparison:', comparisonError);
+            throw new Error(`Error al eliminar la selección: ${comparisonError.message}`);
+          }
+          console.log('Removed quotation comparison for item:', comparison.item_id);
         }
 
-        // Then delete accessories associated with this quotation
+        // Delete accessories associated with this quotation
         const { error: accessoriesError } = await supabase
           .from('quotation_accessories')
           .delete()
@@ -46,19 +56,21 @@ export const useQuotationManagement = () => {
         }
 
         console.log('Quotation deleted successfully:', quotationId);
-        return quotationId;
+        return { quotationId, comparisonRemoved: !!comparison };
 
       } catch (error) {
         console.error('Error in deleteQuotation:', error);
         throw error;
       }
     },
-    onSuccess: (deletedQuotationId) => {
+    onSuccess: (result) => {
       console.log('Quotation deletion successful, invalidating queries');
       
       toast({
         title: "Cotización eliminada",
-        description: "La cotización se ha eliminado correctamente",
+        description: result.comparisonRemoved 
+          ? "La cotización y su selección se han eliminado correctamente"
+          : "La cotización se ha eliminado correctamente",
       });
       
       // Invalidate all related queries to ensure data synchronization
@@ -68,8 +80,8 @@ export const useQuotationManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['supplier-equipments'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       
-      // Force a fresh fetch of assignment data
-      queryClient.refetchQueries({ queryKey: ['item-assignments'] });
+      // Force a fresh fetch of comparison data
+      queryClient.refetchQueries({ queryKey: ['items-with-quotations'] });
       
       console.log('All queries invalidated after deletion');
     },

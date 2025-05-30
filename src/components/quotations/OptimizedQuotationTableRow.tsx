@@ -2,7 +2,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Eye, User } from "lucide-react";
+import { TrendingUp, TrendingDown, Eye, User, Trash2 } from "lucide-react";
 import { formatPENPrice } from "@/utils/currencyConverter";
 import { calculateQuotationPrices, getQuotationType } from "@/utils/quotationPriceCalculator";
 
@@ -17,6 +17,8 @@ interface OptimizedQuotationTableRowProps {
   isSelecting: boolean;
   onSelect: (itemId: string, quotationId: string) => void;
   onView: (quotation: any) => void;
+  onDelete?: (quotationId: string) => void;
+  isDeleting?: boolean;
 }
 
 export const OptimizedQuotationTableRow = React.memo(({
@@ -29,7 +31,9 @@ export const OptimizedQuotationTableRow = React.memo(({
   isSelected,
   isSelecting,
   onSelect,
-  onView
+  onView,
+  onDelete,
+  isDeleting = false
 }: OptimizedQuotationTableRowProps) => {
   const priceCalculation = React.useMemo(() => 
     calculateQuotationPrices(quotation, quantity), 
@@ -46,13 +50,21 @@ export const OptimizedQuotationTableRow = React.memo(({
     onView(quotation);
   }, [quotation, onView]);
 
+  const handleDelete = React.useCallback(() => {
+    if (onDelete) {
+      onDelete(quotation.id);
+    }
+  }, [quotation.id, onDelete]);
+
   const isBestPrice = adjustedUnitPricePEN === bestPricePEN;
   const isWorstPrice = adjustedUnitPricePEN === worstPricePEN && totalQuotations > 1;
 
   return (
     <tr 
-      className={`border-b border-gray-100 hover:bg-gray-50 ${
-        isSelected ? 'bg-blue-50 border-blue-200' : ''
+      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+        isSelected 
+          ? 'bg-blue-100 border-blue-300 shadow-sm ring-1 ring-blue-200' 
+          : ''
       }`}
     >
       <td className="py-3 px-3">
@@ -67,14 +79,20 @@ export const OptimizedQuotationTableRow = React.memo(({
       </td>
       <td className="py-3 px-3">
         <div>
-          <p className="font-medium text-sm">{quotation.marca}</p>
-          <p className="text-xs text-gray-500">{quotation.modelo}</p>
+          <p className={`font-medium text-sm ${isSelected ? 'text-blue-900' : ''}`}>
+            {quotation.marca}
+          </p>
+          <p className={`text-xs ${isSelected ? 'text-blue-700' : 'text-gray-500'}`}>
+            {quotation.modelo}
+          </p>
         </div>
       </td>
-      <td className="py-3 px-3 text-sm">{quotation.supplier.razon_social}</td>
+      <td className={`py-3 px-3 text-sm ${isSelected ? 'text-blue-900' : ''}`}>
+        {quotation.supplier.razon_social}
+      </td>
       <td className="py-3 px-3">
-        <div className="flex items-center space-x-1 text-sm">
-          <User className="w-3 h-3 text-gray-500" />
+        <div className={`flex items-center space-x-1 text-sm ${isSelected ? 'text-blue-900' : ''}`}>
+          <User className={`w-3 h-3 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
           <span>{quotation.cotizador?.nombre || 'No asignado'}</span>
         </div>
       </td>
@@ -85,7 +103,7 @@ export const OptimizedQuotationTableRow = React.memo(({
       </td>
       <td className="py-3 px-3">
         <div className="text-sm">
-          <span className="font-medium">
+          <span className={`font-medium ${isSelected ? 'text-blue-900' : ''}`}>
             {formatPENPrice(basePricePEN)}
           </span>
         </div>
@@ -93,7 +111,7 @@ export const OptimizedQuotationTableRow = React.memo(({
       <td className="py-3 px-3">
         <div className="flex items-center space-x-1">
           <div className="text-sm">
-            <span className="font-bold text-blue-600">
+            <span className={`font-bold ${isSelected ? 'text-blue-700' : 'text-blue-600'}`}>
               {formatPENPrice(adjustedUnitPricePEN)}
             </span>
             {accessoryPricePerUnitPEN > 0 && (
@@ -111,21 +129,36 @@ export const OptimizedQuotationTableRow = React.memo(({
         </div>
       </td>
       <td className="py-3 px-3">
-        <div className="text-sm font-bold text-green-600">
+        <div className={`text-sm font-bold ${isSelected ? 'text-blue-700' : 'text-green-600'}`}>
           {formatPENPrice(totalPricePEN)}
         </div>
       </td>
-      <td className="py-3 px-3 text-sm">{quotation.tiempo_entrega || '-'}</td>
+      <td className={`py-3 px-3 text-sm ${isSelected ? 'text-blue-900' : ''}`}>
+        {quotation.tiempo_entrega || '-'}
+      </td>
       <td className="py-3 px-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleView}
-          className="flex items-center space-x-1"
-        >
-          <Eye className="w-3 h-3" />
-          <span>Ver</span>
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleView}
+            className="flex items-center space-x-1"
+          >
+            <Eye className="w-3 h-3" />
+            <span>Ver</span>
+          </Button>
+          {onDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="flex items-center space-x-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          )}
+        </div>
       </td>
     </tr>
   );

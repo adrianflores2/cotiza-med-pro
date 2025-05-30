@@ -7,6 +7,7 @@ import { OptimizedQuotationTableRow } from "./OptimizedQuotationTableRow";
 import { QuotationConfigPanel } from "./QuotationConfigPanel";
 import { getBestPricePEN, getWorstPricePEN } from "@/utils/quotationPriceCalculator";
 import { EmptyState } from "@/components/ui/states/EmptyState";
+import { useQuotationManagement } from "@/hooks/useQuotationManagement";
 
 interface OptimizedQuotationItemCardProps {
   item: any;
@@ -25,6 +26,7 @@ export const OptimizedQuotationItemCard = React.memo(({
   onMarginChange,
   onObservationChange
 }: OptimizedQuotationItemCardProps) => {
+  const { deleteQuotation, isDeleting } = useQuotationManagement();
   const bestPricePEN = React.useMemo(() => getBestPricePEN(item.quotations), [item.quotations]);
   const worstPricePEN = React.useMemo(() => getWorstPricePEN(item.quotations), [item.quotations]);
   const selectedQuotation = React.useMemo(() => 
@@ -32,22 +34,39 @@ export const OptimizedQuotationItemCard = React.memo(({
     [item.quotations]
   );
 
+  const handleDeleteQuotation = React.useCallback((quotationId: string) => {
+    deleteQuotation(quotationId);
+  }, [deleteQuotation]);
+
   return (
-    <Card className="border-2">
-      <CardHeader className="bg-gray-50">
+    <Card className={`border-2 transition-all duration-200 ${
+      selectedQuotation 
+        ? 'border-blue-300 bg-blue-50/30 shadow-lg' 
+        : 'border-gray-200 hover:border-gray-300'
+    }`}>
+      <CardHeader className={`transition-colors duration-200 ${
+        selectedQuotation ? 'bg-blue-100/50' : 'bg-gray-50'
+      }`}>
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-lg text-gray-900 mb-2">
+            <CardTitle className={`text-lg mb-2 transition-colors duration-200 ${
+              selectedQuotation ? 'text-blue-900' : 'text-gray-900'
+            }`}>
               {item.equipment.nombre_equipo}
             </CardTitle>
-            <div className="flex items-center space-x-4 text-sm text-gray-600">
+            <div className={`flex items-center space-x-4 text-sm transition-colors duration-200 ${
+              selectedQuotation ? 'text-blue-700' : 'text-gray-600'
+            }`}>
               <span>Código: {item.equipment.codigo}</span>
               <span>Ítem: #{item.numero_item}</span>
               <span>Cantidad: {item.cantidad}</span>
               <span>Proyecto: {item.project.nombre}</span>
             </div>
           </div>
-          <Badge variant={selectedQuotation ? "default" : "secondary"}>
+          <Badge 
+            variant={selectedQuotation ? "default" : "secondary"}
+            className={selectedQuotation ? 'bg-blue-600' : ''}
+          >
             {selectedQuotation ? "Cotización seleccionada" : "Pendiente selección"}
           </Badge>
         </div>
@@ -91,6 +110,8 @@ export const OptimizedQuotationItemCard = React.memo(({
                       isSelecting={isSelecting}
                       onSelect={onQuotationSelection}
                       onView={onViewQuotation}
+                      onDelete={handleDeleteQuotation}
+                      isDeleting={isDeleting}
                     />
                   ))}
                 </tbody>

@@ -110,6 +110,8 @@ export const useQuotationComparisons = (projectId?: string) => {
       return transformedData;
     },
     enabled: true,
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false
   });
 
   const selectQuotationMutation = useMutation({
@@ -165,20 +167,55 @@ export const useQuotationComparisons = (projectId?: string) => {
         return data;
       }
     },
-    onSuccess: () => {
-      toast({
-        title: "Cotización seleccionada",
-        description: "La cotización se ha seleccionado correctamente",
+    onMutate: async ({ itemId, quotationId }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['items-with-quotations'] });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData(['items-with-quotations', projectId]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(['items-with-quotations', projectId], (old: ItemWithQuotations[] | undefined) => {
+        if (!old) return old;
+        
+        return old.map(item => {
+          if (item.id === itemId) {
+            return {
+              ...item,
+              quotations: item.quotations.map(q => ({
+                ...q,
+                selected: q.id === quotationId
+              }))
+            };
+          }
+          return item;
+        });
       });
-      queryClient.invalidateQueries({ queryKey: ['items-with-quotations'] });
+
+      return { previousData };
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousData) {
+        queryClient.setQueryData(['items-with-quotations', projectId], context.previousData);
+      }
+      
       console.error('Error selecting quotation:', error);
       toast({
         title: "Error",
         description: "No se pudo seleccionar la cotización",
         variant: "destructive",
       });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Cotización seleccionada",
+        description: "La cotización se ha seleccionado correctamente",
+      });
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['items-with-quotations', projectId] });
     },
   });
 
