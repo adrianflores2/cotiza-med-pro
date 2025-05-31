@@ -44,8 +44,10 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
     isLoading,
     selectQuotation,
     updateComparison,
+    deleteQuotation,
     isSelecting,
-    isUpdating
+    isUpdating,
+    isDeleting
   } = useQuotationComparisons(selectedProjectId !== "all" ? selectedProjectId : undefined);
 
   // Update selectedProjectId when projectId prop changes
@@ -86,6 +88,11 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
     setIsViewDialogOpen(true);
   }, []);
 
+  const handleDeleteQuotation = React.useCallback((quotationId: string) => {
+    console.log('Handling quotation deletion:', quotationId);
+    deleteQuotation(quotationId);
+  }, [deleteQuotation]);
+
   const handleMarginChange = React.useCallback((itemId: string, margin: number, adjustedUnitPricePEN: number, quantity: number) => {
     const finalPricePEN = adjustedUnitPricePEN * quantity * (1 + margin / 100);
     
@@ -105,24 +112,14 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
 
   const handleExportExcel = React.useCallback(() => {
     try {
+      console.log('Starting Excel export with filtered items:', filteredItems.length);
+      
       // Prepare data for Excel export
       const exportData = filteredItems
         .filter(item => item.quotations.length > 0)
         .map(item => {
           const selectedQuotation = item.quotations.find(q => q.selected);
-          const allQuotations = item.quotations.map(q => {
-            const prices = calculateQuotationPrices(q, item.cantidad);
-            return {
-              marca: q.marca,
-              modelo: q.modelo,
-              proveedor: q.supplier.razon_social,
-              precio_unitario: formatPENPrice(prices.basePricePEN),
-              precio_ajustado: formatPENPrice(prices.adjustedUnitPricePEN),
-              total: formatPENPrice(prices.totalPricePEN),
-              seleccionada: q.selected ? 'SÍ' : 'NO'
-            };
-          });
-
+          
           const baseRow = {
             proyecto: item.project.nombre,
             codigo_equipo: item.equipment.codigo,
@@ -139,6 +136,15 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
 
           return baseRow;
         });
+
+      if (exportData.length === 0) {
+        toast({
+          title: "No hay datos para exportar",
+          description: "No se encontraron ítems con cotizaciones para exportar",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Create workbook
       const wb = XLSX.utils.book_new();
@@ -179,6 +185,8 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
       const projectName = selectedProjectId !== "all" ? projects.find(p => p.id === selectedProjectId)?.nombre || "Todos" : "Todos";
       const filename = `Comparacion_Cotizaciones_${projectName}_${currentDate}.xlsx`;
 
+      console.log('Generated Excel with', exportData.length, 'summary rows and', detailedData.length, 'detail rows');
+
       // Save file
       XLSX.writeFile(wb, filename);
 
@@ -207,9 +215,13 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
           <h3 className="text-xl font-semibold text-gray-900">Comparación de Cotizaciones</h3>
           <p className="text-gray-600">Analiza y selecciona las mejores propuestas para cada ítem</p>
         </div>
-        <Button onClick={handleExportExcel} className="bg-green-600 hover:bg-green-700">
+        <Button 
+          onClick={handleExportExcel} 
+          className="bg-green-600 hover:bg-green-700"
+          disabled={filteredItems.length === 0}
+        >
           <Download className="w-4 h-4 mr-2" />
-          Exportar a Excel
+          Exportar a Excel ({filteredItems.filter(item => item.quotations.length > 0).length} ítems)
         </Button>
       </div>
 
@@ -254,11 +266,13 @@ export const OptimizedQuotationComparison = React.memo(({ projectId }: Optimized
             <OptimizedQuotationItemCard
               key={item.id}
               item={item}
-              isSelecting={isSelecting || isUpdating}
+              isSelecting={isSelecting || isUpdating || isDeleting}
               onQuotationSelection={handleQuotationSelection}
               onViewQuotation={handleViewQuotation}
               onMarginChange={handleMarginChange}
               onObservationChange={handleObservationChange}
+              onDeleteQuotation={handleDeleteQuotation}
+              isDeleting={isDeleting}
             />
           ))}
         </div>

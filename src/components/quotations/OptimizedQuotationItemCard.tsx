@@ -7,7 +7,6 @@ import { OptimizedQuotationTableRow } from "./OptimizedQuotationTableRow";
 import { QuotationConfigPanel } from "./QuotationConfigPanel";
 import { getBestPricePEN, getWorstPricePEN } from "@/utils/quotationPriceCalculator";
 import { EmptyState } from "@/components/ui/states/EmptyState";
-import { useQuotationManagement } from "@/hooks/useQuotationManagement";
 
 interface OptimizedQuotationItemCardProps {
   item: any;
@@ -16,6 +15,8 @@ interface OptimizedQuotationItemCardProps {
   onViewQuotation: (quotation: any) => void;
   onMarginChange: (itemId: string, margin: number, adjustedUnitPricePEN: number, quantity: number) => void;
   onObservationChange: (itemId: string, justificacion: string) => void;
+  onDeleteQuotation?: (quotationId: string) => void;
+  isDeleting?: boolean;
 }
 
 export const OptimizedQuotationItemCard = React.memo(({
@@ -24,9 +25,10 @@ export const OptimizedQuotationItemCard = React.memo(({
   onQuotationSelection,
   onViewQuotation,
   onMarginChange,
-  onObservationChange
+  onObservationChange,
+  onDeleteQuotation,
+  isDeleting = false
 }: OptimizedQuotationItemCardProps) => {
-  const { deleteQuotation, isDeleting } = useQuotationManagement();
   const bestPricePEN = React.useMemo(() => getBestPricePEN(item.quotations), [item.quotations]);
   const worstPricePEN = React.useMemo(() => getWorstPricePEN(item.quotations), [item.quotations]);
   const selectedQuotation = React.useMemo(() => 
@@ -35,8 +37,10 @@ export const OptimizedQuotationItemCard = React.memo(({
   );
 
   const handleDeleteQuotation = React.useCallback((quotationId: string) => {
-    deleteQuotation(quotationId);
-  }, [deleteQuotation]);
+    if (onDeleteQuotation) {
+      onDeleteQuotation(quotationId);
+    }
+  }, [onDeleteQuotation]);
 
   return (
     <Card className={`border-2 transition-all duration-200 ${

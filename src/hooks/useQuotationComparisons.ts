@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -113,6 +112,107 @@ export const useQuotationComparisons = (projectId?: string) => {
     staleTime: 300000, // 5 minutes - much longer to prevent data loss when switching tabs
     gcTime: 600000, // 10 minutes - keep in cache longer
     refetchOnWindowFocus: false
+  });
+
+  const deleteQuotationMutation = useMutation({
+    mutationFn: async (quotationId: string) => {
+      console.log('Deleting quotation:', quotationId);
+      
+      // First, check if this quotation is selected in any comparison
+      const { data: comparison } = await supabase
+        .from('quotation_comparisons')
+        .select('id, item_id')
+        .eq('cotizacion_seleccionada_id', quotationId)
+        .maybeSingle();
+
+      if (comparison) {
+        console.log('Deleting comparison record for quotation:', quotationId);
+        const { error: comparisonError } = await supabase
+          .from('quotation_comparisons')
+          .delete()
+          .eq('id', comparison.id);
+
+        if (comparisonError) {
+          console.error('Error deleting comparison:', comparisonError);
+          throw comparisonError;
+        }
+      }
+
+      // Delete accessories first (foreign key constraint)
+      const { error: accessoriesError } = await supabase
+        .from('quotation_accessories')
+        .delete()
+        .eq('cotizacion_id', quotationId);
+
+      if (accessoriesError) {
+        console.error('Error deleting quotation accessories:', accessoriesError);
+        throw accessoriesError;
+      }
+
+      // Then delete the quotation
+      const { error: quotationError } = await supabase
+        .from('quotations')
+        .delete()
+        .eq('id', quotationId);
+
+      if (quotationError) {
+        console.error('Error deleting quotation:', quotationError);
+        throw quotationError;
+      }
+
+      console.log('Quotation deleted successfully:', quotationId);
+      return { quotationId, comparisonDeleted: !!comparison };
+    },
+    onMutate: async (quotationId: string) => {
+      console.log('Optimistic update: deleting quotation', quotationId);
+      
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['items-with-quotations'] });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData(['items-with-quotations', projectId]);
+
+      // Optimistically remove the quotation
+      queryClient.setQueryData(['items-with-quotations', projectId], (old: ItemWithQuotations[] | undefined) => {
+        if (!old) return old;
+        
+        return old.map(item => ({
+          ...item,
+          quotations: item.quotations.filter(q => q.id !== quotationId),
+          // Clear comparison if this quotation was selected
+          comparison: item.comparison?.cotizacion_seleccionada_id === quotationId 
+            ? undefined 
+            : item.comparison
+        }));
+      });
+
+      return { previousData };
+    },
+    onError: (error, quotationId, context) => {
+      console.error('Error deleting quotation:', error);
+      
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousData) {
+        queryClient.setQueryData(['items-with-quotations', projectId], context.previousData);
+      }
+      
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar la cotización. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: (data) => {
+      console.log('Quotation deletion successful:', data);
+      
+      toast({
+        title: "Cotización eliminada",
+        description: `La cotización se ha eliminado correctamente${data.comparisonDeleted ? ' junto con su selección' : ''}`,
+      });
+
+      // Invalidate and refetch to ensure data consistency
+      queryClient.invalidateQueries({ queryKey: ['items-with-quotations'] });
+    }
   });
 
   const selectQuotationMutation = useMutation({
@@ -367,8 +467,10 @@ export const useQuotationComparisons = (projectId?: string) => {
     error: itemsWithQuotationsQuery.error,
     selectQuotation: selectQuotationMutation.mutate,
     updateComparison: updateComparisonMutation.mutate,
+    deleteQuotation: deleteQuotationMutation.mutate,
     isSelecting: selectQuotationMutation.isPending,
     isUpdating: updateComparisonMutation.isPending,
+    isDeleting: deleteQuotationMutation.isPending,
     refetch: itemsWithQuotationsQuery.refetch,
   };
 };
